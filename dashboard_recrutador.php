@@ -80,16 +80,43 @@ $candidaturas_pendentes = $conn->query("SELECT COUNT(*) AS total FROM compras WH
         </nav>
 
         <!-- Conteúdo -->
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 content">
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-5 content">
             <h2 class="mb-4 mt-3">Bem-vindo ao seu Dashboard, <?= htmlspecialchars($nome_usuario) ?>!</h2>
 
             <!-- Cartões de resumo -->
-            <div class="row text-center mb-4">
-                <div class="col-md-3"><div class="card p-3 shadow-sm"><h5>Total de Vagas</h5><h3><?= $total_vagas ?></h3></div></div>
-                <div class="col-md-3"><div class="card p-3 shadow-sm"><h5>Total de Candidaturas</h5><h3><?= $total_candidaturas ?></h3></div></div>
-                <div class="col-md-3"><div class="card p-3 shadow-sm"><h5>Aprovadas</h5><h3><?= $candidaturas_aprovadas ?></h3></div></div>
-                <div class="col-md-3"><div class="card p-3 shadow-sm"><h5>Pendentes</h5><h3><?= $candidaturas_pendentes ?></h3></div></div>
-            </div>
+            <div class="row text-center g-4">
+    <div class="col-md-3">
+        <div class="card p-3 shadow-sm">
+            <h5>Total de Vagas</h5>
+            <h3><?= $total_vagas ?></h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 shadow-sm">
+            <h5>Total de Candidaturas</h5>
+            <h3><?= $total_candidaturas ?></h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 shadow-sm">
+            <h5>Aprovadas</h5>
+            <h3><?= $candidaturas_aprovadas ?></h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 shadow-sm">
+            <h5>Pendentes</h5>
+            <h3><?= $candidaturas_pendentes ?></h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 shadow-sm">
+            <h5>Rejeitadas</h5>
+            <h3><?= $candidaturas_rejeitadas ?></h3>
+        </div>
+    </div>
+</div>
+
 
             <!-- Gráfico -->
             <div class="chart-container">

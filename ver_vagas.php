@@ -23,7 +23,10 @@ $filtro_idade = $_GET['idade'] ?? '';
 $filtro_modalidade = $_GET['modalidade'] ?? '';
 
 // Construir SQL com filtros
-$sql = "SELECT id, nome, descricao, preco, data_validade, modalidade, posicao FROM produtos WHERE 1=1";
+// $sql = "SELECT id, nome, descricao, preco, data_validade, modalidade, posicao FROM produtos WHERE 1=1";
+$sql = "SELECT id, nome, descricao, preco, data_validade, modalidade, posicao 
+        FROM produtos 
+        WHERE data_validade >= DATE_SUB(NOW(), INTERVAL 5 DAY)";
 
 if (!empty($filtro_idade)) {
     $sql .= " AND preco >= " . intval($filtro_idade);
