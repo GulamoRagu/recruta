@@ -56,7 +56,7 @@ $candidaturas_pendentes = $conn->query("SELECT COUNT(*) AS total FROM compras WH
         }
         .chart-container {
             width: 100%;
-            max-width: 700px;
+            max-width: 500px;
             margin: 30px auto;
             background: white;
             border-radius: 10px;
@@ -145,7 +145,7 @@ new Chart(ctx, {
             title: {
                 display: true,
                 text: 'Estado das Candidaturas',
-                font: { size: 18 }
+                font: { size: 15 }
             },
             legend: { position: 'bottom' }
         }
