@@ -78,7 +78,7 @@ $conn->close();
             <h2>Registro</h2>
             <form action="register.php" method="post">
                 <div class="mb-3">
-                    <label class="form-label">Username</label>
+                    <label class="form-label">Usuario</label>
                     <input type="text" name="username" class="form-control" required>
                 </div>
                 <div class="mb-3">

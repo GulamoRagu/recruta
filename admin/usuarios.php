@@ -29,7 +29,7 @@ $recrutadores = $conn->query("SELECT * FROM usuarios WHERE tipo='vendedor' ORDER
 </nav>
 
 <div class="container my-5">
-    <h1 class="mb-4 text-center">Gerenciar Usuários</h1>
+    <h1 class="mb-4 text-center">Usuários</h1>
 
     <!-- Atletas -->
     <div class="card mb-5 shadow-sm">

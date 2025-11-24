@@ -122,18 +122,13 @@ $user = $result->fetch_assoc();
                 <input type="text" name="clube_anterior" id="clube_anterior" class="form-control" value="<?= htmlspecialchars($user['clube_anterior']) ?>" required>
         
             </div>
+             <div class="mb-3">
+                <label for="modalidade" class="form-label">Modalidade</label>
+                <input type="text" name="modalidade" id="modalidade" class="form-control" value="<?= htmlspecialchars($user['modalidade']) ?>" required>
+        
+            </div>
              
-            <div class="mb-3">
-    <label class="form-label">Modalidade</label><br>
-    <div class="form-check form-check-inline">
-        <input class="form-check-input" type="radio" name="modalidade" id="modalidade_futebol" value="Futebol" <?= $user['modalidade'] == 'Futebol' ? 'checked' : '' ?>>
-        <label class="form-check-label" for="modalidade_futebol">Futebol</label>
-    </div>
-    <div class="form-check form-check-inline">
-        <input class="form-check-input" type="radio" name="modalidade" id="modalidade_futsal" value="Futsal" <?= $user['modalidade'] == 'Futsal' ? 'checked' : '' ?>>
-        <label class="form-check-label" for="modalidade_futsal">Futsal</label>
-    </div>
-</div>
+          
 
 <div class="mb-3">
     <label class="form-label">Pé Preferido</label><br>

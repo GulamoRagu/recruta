@@ -106,7 +106,7 @@ $produto = $result->fetch_assoc();
                             <input type="date" class="form-control" id="data_validade" name="data_validade" value="<?= $produto['data_validade'] ?>" required>
                         </div>
 
-                        <button type="submit" class="btn btn-primary w-100">Atualizar</button>
+                        <button type="submit" class="btn btn-primary w-100">Actualizar</button>
                     </form>
 
                     <a href="listar_vaga.php" class="btn btn-secondary mt-3 w-100"><i class="fa-solid fa-arrow-left"></i> Voltar</a>

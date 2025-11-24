@@ -125,11 +125,11 @@ $query = $conn->query($sql);
     <!-- Filtros -->
     <form method="GET" class="row g-3 mb-4">
         <div class="col-md-4">
-            <label for="idade" class="form-label">Sua idade actual:</label>
+            <label for="idade" class="form-label">Idade</label>
             <input type="number" name="idade" id="idade" class="form-control" placeholder="Ex: 20" value="<?= htmlspecialchars($filtro_idade) ?>">
         </div>
         <div class="col-md-4">
-            <label for="modalidade" class="form-label">Modalidade:</label>
+            <label for="modalidade" class="form-label">Modalidade</label>
             <input type="text" name="modalidade" id="modalidade" class="form-control" placeholder="Ex: Futebol" value="<?= htmlspecialchars($filtro_modalidade) ?>">
         </div>
         <div class="col-md-4 align-self-end">
