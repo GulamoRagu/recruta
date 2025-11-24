@@ -63,34 +63,7 @@ while($row = $resultAll->fetch_assoc()){
 <div class="container my-5">
     <h1 class="mb-4 text-center">Gerenciar Candidatos</h1>
 
-    <!-- Gráficos de Status -->
-    <div class="row mb-5">
-        <div class="col-md-4">
-            <div class="card text-center shadow-sm">
-                <div class="card-header bg-warning text-dark">Pendentes</div>
-                <div class="card-body">
-                    <canvas id="graficoPendentes"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-center shadow-sm">
-                <div class="card-header bg-success text-white">Aprovados</div>
-                <div class="card-body">
-                    <canvas id="graficoAprovados"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-center shadow-sm">
-                <div class="card-header bg-danger text-white">Rejeitados</div>
-                <div class="card-body">
-                    <canvas id="graficoRejeitados"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-
+ 
     <?php if($filtro_status): ?>
 <div class="alert alert-info">
     Mostrando candidatos com status: <strong><?= ucfirst($filtro_status) ?></strong>
@@ -98,6 +71,18 @@ while($row = $resultAll->fetch_assoc()){
 </div>
 <?php endif; ?>
 
+<div class="mb-4">
+    <form method="GET" class="d-flex align-items-center gap-2">
+        <label for="status" class="me-2"><strong>Filtrar por Status:</strong></label>
+        <select name="status" id="status" class="form-select" style="width: 200px;">
+            <option value="">Todos</option>
+            <option value="pendente" <?= $filtro_status == 'pendente' ? 'selected' : '' ?>>Pendente</option>
+            <option value="aprovado" <?= $filtro_status == 'aprovado' ? 'selected' : '' ?>>Aprovado</option>
+            <option value="rejeitado" <?= $filtro_status == 'rejeitado' ? 'selected' : '' ?>>Rejeitado</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+    </form>
+</div>
 
     <!-- Tabela de Candidatos -->
     <div class="card shadow-sm">
@@ -157,41 +142,7 @@ while($row = $resultAll->fetch_assoc()){
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- Chart.js -->
-<script>
 
-function graficoClique(status){
-    window.location.href = '?status=' + status;
-}
-
-const ctxPendentes = document.getElementById('graficoPendentes').getContext('2d');
-new Chart(ctxPendentes, {
-    type: 'doughnut',
-    data: {
-        labels: ['Pendentes','Outros'],
-        datasets:[{data:[<?= $statusCounts['pendente'] ?>, <?= $statusCounts['aprovado'] + $statusCounts['rejeitado'] ?>],
-                    backgroundColor:['#ffc107','#e9ecef'] }]
-    },
-    options:{
-        onClick: ()=> graficoClique('pendente'),
-        responsive:true, plugins:{legend:{display:false}}
-    }
-});
-
-const ctxAprovados = document.getElementById('graficoAprovados').getContext('2d');
-new Chart(ctxAprovados, {
-    type:'doughnut',
-    data:{ labels:['Aprovados','Outros'], datasets:[{data:[<?= $statusCounts['aprovado'] ?>, <?= $statusCounts['pendente'] + $statusCounts['rejeitado'] ?>], backgroundColor:['#28a745','#e9ecef']}]},
-    options:{onClick:()=>graficoClique('aprovado'), responsive:true, plugins:{legend:{display:false}}}
-});
-
-const ctxRejeitados = document.getElementById('graficoRejeitados').getContext('2d');
-new Chart(ctxRejeitados, {
-    type:'doughnut',
-    data:{ labels:['Rejeitados','Outros'], datasets:[{data:[<?= $statusCounts['rejeitado'] ?>, <?= $statusCounts['pendente'] + $statusCounts['aprovado'] ?>], backgroundColor:['#dc3545','#e9ecef']}]},
-    options:{onClick:()=>graficoClique('rejeitado'), responsive:true, plugins:{legend:{display:false}}}
-});
-</script>
 
 
 </body>

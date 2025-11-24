@@ -7,6 +7,30 @@ if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
+$filtro_status = isset($_GET['status']) ? $_GET['status'] : '';
+$sql = "SELECT compras.*, 
+               produtos.nome AS produto_nome, 
+               produtos.vendedor_id,
+               usuarios.nome_completo AS cliente_nome, 
+               usuarios.idade AS cliente_idade, 
+               compras.data_compra, 
+               compras.status
+        FROM compras 
+        JOIN produtos ON compras.produto_id = produtos.id
+        JOIN usuarios ON compras.cliente_id = usuarios.id
+        WHERE (produtos.vendedor_id = ? OR compras.cliente_id = ?)";
+
+// Filtrar por status se houver
+if ($filtro_status && in_array($filtro_status, ['Pendente','Aprovado','Rejeitado'])) {
+    $sql .= " AND compras.status = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("iis", $user_id, $user_id, $filtro_status);
+} else {
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ii", $user_id, $user_id);
+}
+$stmt->execute();
+$result = $stmt->get_result();
 
 $user_id = intval($_SESSION['user_id']);
 $user_tipo = $_SESSION['tipo']; // Tipo de usuário (vendedor ou cliente)
@@ -99,6 +123,19 @@ $result = $stmt->get_result();
             <h2 class="text-center mb-4"><i class="fa-solid fa-money-bill"></i> Candidaturas</h2>
 
             <?php if ($result->num_rows > 0): ?>
+               <div class="mb-4">
+    <form method="GET" class="d-flex align-items-center gap-2">
+        <label for="status" class="me-2"><strong>Status:</strong></label>
+        <select name="status" id="status" class="form-select" style="width: 200px;">
+            <option value="">Todos</option>
+            <option value="Pendente" <?= $filtro_status == 'Pendente' ? 'selected' : '' ?>>Pendente</option>
+            <option value="Aprovado" <?= $filtro_status == 'Aprovado' ? 'selected' : '' ?>>Aprovado</option>
+            <option value="Rejeitado" <?= $filtro_status == 'Rejeitado' ? 'selected' : '' ?>>Rejeitado</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+    </form>
+</div>
+ 
                 <div class="row row-cols-1 row-cols-md-2 g-4">
                     <?php while ($row = $result->fetch_assoc()): ?>
                     <div class="col">
@@ -110,7 +147,8 @@ $result = $stmt->get_result();
                                 <p class="card-text"><strong>Data de Submissão:</strong> <?= htmlspecialchars($row['data_compra']) ?></p>
 
                                 <p class="card-text mb-3">
-                                    <strong>Status:</strong><br />
+                                    <p class="card-text"><strong>Status:</strong> <?= htmlspecialchars($row['status']) ?></p>
+                                    
                                     <?php if ($user_tipo === 'vendedor'): ?>
                                         <form method="POST" action="atualizar_status.php" class="d-flex flex-column flex-sm-row gap-2 align-items-start align-items-sm-center">
                                             <input type="hidden" name="compra_id" value="<?= $row['id'] ?>">
