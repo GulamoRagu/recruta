@@ -7,7 +7,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email    = $_POST['email'];
     $senha    = $_POST['senha'];
     $tipo     = 'cliente'; // Força todos como atleta
-    //$hash     = password_hash($senha, PASSWORD_DEFAULT);
+    $hash     = password_hash($senha, PASSWORD_DEFAULT);
 
     // Prepara a query primeiro
     $sql = "INSERT INTO usuarios (username, email, senha, tipo) VALUES (?, ?, ?, ?)";
