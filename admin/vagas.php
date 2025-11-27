@@ -1,7 +1,7 @@
 <?php
-include "auth.php"; // verifica login do admin
-include "../db.php";
-
+ob_start();
+session_start();
+require '../db.php';
 
 // Buscar vagas
 $vagas = $conn->query("SELECT * FROM produtos ORDER BY data_validade DESC");

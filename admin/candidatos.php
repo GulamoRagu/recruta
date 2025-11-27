@@ -1,7 +1,8 @@
 
 <?php
-include "auth.php";
-include "../db.php";
+ob_start();
+session_start();
+require '../db.php';
 
 // Pegar status da query string, se houver
 $filtro_status = isset($_GET['status']) ? $_GET['status'] : '';

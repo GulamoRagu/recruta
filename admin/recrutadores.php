@@ -4,8 +4,7 @@ ob_start();
 session_start();
 require '../db.php';
 
-// Buscar atletas
-$atletas = $conn->query("SELECT * FROM usuarios WHERE tipo='cliente' ORDER BY criado_em DESC");
+
 
 // Buscar recrutadores
 $recrutadores = $conn->query("SELECT * FROM usuarios WHERE tipo='vendedor' ORDER BY criado_em DESC");
@@ -15,7 +14,7 @@ $recrutadores = $conn->query("SELECT * FROM usuarios WHERE tipo='vendedor' ORDER
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciar Usuários</title>
+    <title>Gerenciar Recrutadores</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
@@ -31,12 +30,12 @@ $recrutadores = $conn->query("SELECT * FROM usuarios WHERE tipo='vendedor' ORDER
 </nav>
 
 <div class="container my-5">
-    <h1 class="mb-4 text-center">Usuários</h1>
+    <h1 class="mb-4 text-center">GGG</h1>
 
-    <!-- Atletas -->
+      <!-- Recrutadores -->
     <div class="card mb-5 shadow-sm">
-        <div class="card-header bg-success text-white">
-            <h3 class="mb-0">Atletas Cadastrados</h3>
+        <div class="card-header bg-warning text-dark">
+            <h3 class="mb-0">Recrutadores Cadastrados</h3>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -52,7 +51,7 @@ $recrutadores = $conn->query("SELECT * FROM usuarios WHERE tipo='vendedor' ORDER
                         </tr>
                     </thead>
                     <tbody>
-                        <?php while($row = $atletas->fetch_assoc()): ?>
+                        <?php while($row = $recrutadores->fetch_assoc()): ?>
                         <tr>
                             <td><?= $row['id'] ?></td>
                             <td><?= htmlspecialchars($row['nome_completo']) ?></td>
@@ -61,12 +60,12 @@ $recrutadores = $conn->query("SELECT * FROM usuarios WHERE tipo='vendedor' ORDER
                             <td><?= $row['criado_em'] ?></td>
                             <td>
                                 
-                                
-                                <a href="../perfil_atleta.php?id=<?= $row['id'] ?>" class="btn btn-primary btn-lg">
-                                    Ver Perfil
-                                </a>
-                                <a href="../perfil_atleta.php?id=<?= $row['id'] ?>" class="btn btn-danger btn-lg">
+                            
+                                <a href="./perfil_recrutador.php?id=<?= $row['id'] ?>" class="btn btn-danger btn-lg">
                                     Apagar
+                                </a>
+                                <a href="./perfil_recrutador.php?id=<?= $row['id'] ?>" class="btn btn-primary btn-lg">
+                                    Editar
                                 </a>
                             
                             </td>
@@ -78,8 +77,7 @@ $recrutadores = $conn->query("SELECT * FROM usuarios WHERE tipo='vendedor' ORDER
         </div>
     </div>
 
-   
-
+</div>
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

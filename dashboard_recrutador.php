@@ -73,8 +73,8 @@ $candidaturas_pendentes = $conn->query("SELECT COUNT(*) AS total FROM compras WH
         <nav class="col-md-3 col-lg-2 sidebar">
             <h4 class="text-center text-white"><?= htmlspecialchars($nome_usuario) ?></h4>
             <a href="perfil_recrutador.php"><i class="fa-solid fa-user"></i> Meu Perfil</a>
-            <a href="cadastrar_vaga.php"><i class="fa-solid fa-plus"></i> Cadastrar Vaga</a>
-            <a href="listar_vaga.php"><i class="fa-solid fa-box"></i> Listar Vagas</a>
+          
+            <a href="vagas_recrutador.php"><i class="fa-solid fa-box"></i> Vagas</a>
             <a href="ver_candidaturas.php"><i class="fa-solid fa-chart-line"></i> Ver Candidaturas</a>
             <a href="logout.php" class="text-danger"><i class="fa-solid fa-sign-out-alt"></i> Sair</a>
         </nav>
@@ -127,31 +127,6 @@ $candidaturas_pendentes = $conn->query("SELECT COUNT(*) AS total FROM compras WH
     </div>
 </div>
 
-<!-- Script do gráfico -->
-<script>
-const ctx = document.getElementById('statusChart').getContext('2d');
-new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-        labels: ['Aprovadas', 'Rejeitadas', 'Pendentes'],
-        datasets: [{
-            data: [<?= $candidaturas_aprovadas ?>, <?= $candidaturas_rejeitadas ?>, <?= $candidaturas_pendentes ?>],
-            backgroundColor: ['#28a745', '#dc3545', '#ffc107'],
-            hoverOffset: 10
-        }]
-    },
-    options: {
-        plugins: {
-            title: {
-                display: true,
-                text: 'Estado das Candidaturas',
-                font: { size: 15 }
-            },
-            legend: { position: 'bottom' }
-        }
-    }
-});
-</script>
 
 </body>
 </html>

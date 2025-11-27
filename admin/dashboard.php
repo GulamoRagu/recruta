@@ -1,5 +1,9 @@
 <?php
-include "auth.php"; // garante que o admin está logado
+
+ob_start();
+session_start();
+require '../db.php';
+
 ?>
 <!DOCTYPE html>
 <html>
@@ -20,22 +24,30 @@ include "auth.php"; // garante que o admin está logado
 <header>
     <h1>Dashboard do Admin</h1>
     <nav>
-        <span>Bem-vindo, <?= htmlspecialchars($_SESSION['admin_usuario']) ?></span>
-        <a href="logout.php">Sair</a>
+        <span>Bem-vindo, <?= htmlspecialchars($_SESSION['username'] ?? '') ?></span>
+        <a href="../index.php">Sair</a>
     </nav>
 </header>
 
 <div class="cards">
     <div class="card">
-        <a href="usuarios.php">Ver Usuários Cadastrados</a>
+        <a href="usuarios.php">Atletas</a>
     </div>
     <div class="card">
-        <a href="candidatos.php">Gerenciar Candidatos</a>
+        <a href="candidatos.php">Candidatos</a>
     </div>
 
     <div class="card">
-        <a href="vagas.php">Gerenciar Vagas</a>
+        <a href="listar_vaga.php">Vagas</a>
     </div>
+     <div class="card">
+        <a href="criar_recrutador.php">Criar Recrutador</a>
+    </div>
+     <div class="card">
+        <a href="recrutadores.php">Recrutador</a>
+    </div>
+    
+
 
     
     <!-- Você pode adicionar outros cards futuramente -->

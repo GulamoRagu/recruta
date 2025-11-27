@@ -1,20 +1,40 @@
 <?php
 ob_start();
 session_start();
-require 'db.php';
+require '../db.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['tipo'] !== 'vendedor') {
+if (!isset($_SESSION['user_id']) || $_SESSION['tipo'] !== 'admin') {
     header("Location: login.php");
     exit();
 }
 
-$user_id = intval($_SESSION['user_id']);
-$query = $conn->prepare("SELECT nome_completo FROM usuarios WHERE id = ?");
-$query->bind_param("i", $user_id);
-$query->execute();
-$result = $query->get_result();
-$user = $result->fetch_assoc();
-$nome_usuario = $user['nome_completo'] ?? 'Recrutador';
+// Buscar nome do admin logado
+$admin_id = (int)$_SESSION['user_id'];
+$nome_usuario = 'Admin';
+if ($stmt = $conn->prepare('SELECT username FROM usuarios WHERE id = ? LIMIT 1')) {
+    $stmt->bind_param('i', $admin_id);
+    if ($stmt->execute()) {
+        $res = $stmt->get_result();
+        if ($row = $res->fetch_assoc()) {
+            $nome_usuario = $row['username'] ?? 'Admin';
+        }
+    }
+    $stmt->close();
+}
+
+// Carregar recrutadores adicionados por este admin
+$recrutadores = [];
+if ($stmt = $conn->prepare("SELECT id, username FROM usuarios WHERE tipo = 'vendedor' AND criado_por = ? ORDER BY username")) {
+    $stmt->bind_param('i', $admin_id);
+    if ($stmt->execute()) {
+        $res = $stmt->get_result();
+        while ($row = $res->fetch_assoc()) {
+            $recrutadores[] = $row;
+        }
+    }
+    $stmt->close();
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -81,9 +101,7 @@ $nome_usuario = $user['nome_completo'] ?? 'Recrutador';
 <div class="sidebar collapse d-md-block bg-dark" id="mobileMenu">
     <h4 class="text-center text-white d-none d-md-block"><?= htmlspecialchars($nome_usuario) ?></h4>
     <a href="dashboard_recrutador.php"><i class="fa-solid fa-chart-line"></i> Inicio</a>
-    <a href="perfil_recrutador.php"><i class="fa-solid fa-user"></i> Meu Perfil</a>
-    <a href="listar_vaga.php"><i class="fa-solid fa-box"></i> Listar Vagas</a>
-    <a href="ver_candidaturas.php"><i class="fa-solid fa-money-bill"></i> Ver Candidaturas</a>
+   
     <a href="logout.php" class="text-danger"><i class="fa-solid fa-sign-out-alt"></i> Sair</a>
 </div>
 
@@ -117,6 +135,14 @@ $nome_usuario = $user['nome_completo'] ?? 'Recrutador';
                 <label for="data_validade" class="form-label">Data de Validade</label>
                 <input type="date" class="form-control" id="data_validade" name="data_validade" required>
             </div>
+            <div class="mb-3">
+    <label for="recrutador" class="form-label">Recrutador Responsável</label>
+    <select name="recrutador" id="recrutador" class="form-select" required>
+        <?php foreach ($recrutadores as $rec): ?>
+            <option value="<?= $rec['id'] ?>"><?= htmlspecialchars($rec['username']) ?></option>
+        <?php endforeach; ?>
+    </select>
+</div>
             <button type="submit" class="btn btn-primary w-100">Cadastrar</button>
         </form>
 

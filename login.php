@@ -7,7 +7,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = $_POST['username'];
     $senha = $_POST['senha'];
 
-    $sql = "SELECT id, username, senha, tipo FROM usuarios WHERE username = ?";
+    // Busca o usuário pelo username
+    $sql = "SELECT id, username, senha, tipo, status FROM usuarios WHERE username = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("s", $username);
     $stmt->execute();
@@ -15,27 +16,44 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if ($result->num_rows > 0) {
         $user = $result->fetch_assoc();
-        if (!password_verify($senha, $user['senha'])) {
+
+        // Verifica se a senha está correta
+        if (!password_verify($hash, $user['senha'])) {
+
+            // Verifica se o usuário está ativo
+            if ($user['status'] != 'ativo') {
+                echo "<p class='alert alert-danger'>Conta inativa. Contate o administrador.</p>";
+                exit();
+            }
+
+            // Cria sessão
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['tipo'] = $user['tipo'];
 
+            // Redireciona conforme tipo
             if ($user['tipo'] == 'cliente') {
                 header("Location: dashboard_atleta.php");
-            } else {
+            } elseif ($user['tipo'] == 'vendedor') {
                 header("Location: dashboard_recrutador.php");
+            } elseif ($user['tipo'] == 'admin') {
+                header("Location: ./admin/dashboard.php");
             }
             exit();
+
         } else {
             echo "<p class='alert alert-danger'>Senha incorreta!</p>";
         }
+
     } else {
         echo "<p class='alert alert-danger'>Usuário não encontrado!</p>";
     }
+
     $stmt->close();
 }
 $conn->close();
 ?>
+
 
 <!DOCTYPE html>
 <html lang="pt">

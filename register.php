@@ -4,25 +4,34 @@ include 'db.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = $_POST['username'];
-    $email = $_POST['email'];
-    $senha =$_POST['senha'];
-    $tipo = $_POST['tipo'];
+    $email    = $_POST['email'];
+    $senha    = $_POST['senha'];
+    $tipo     = 'cliente'; // Força todos como atleta
+    //$hash     = password_hash($senha, PASSWORD_DEFAULT);
 
+    // Prepara a query primeiro
     $sql = "INSERT INTO usuarios (username, email, senha, tipo) VALUES (?, ?, ?, ?)";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ssss", $username, $email, $senha, $tipo);
+    if (!$stmt) {
+        die("Erro na preparação da query: " . $conn->error);
+    }
 
+    // Agora faz o bind dos parâmetros
+    $stmt->bind_param("ssss", $username, $email, $hash, $tipo);
+
+    // Executa
     if ($stmt->execute()) {
-        // Após o registro, redireciona para a página de login
-        header("Location: login.php");
-        exit(); // Garante que o script seja interrompido após o redirecionamento
+        header("Location: index.php");
+        exit();
     } else {
         echo "<p class='alert alert-danger'>Erro ao registrar: " . $stmt->error . "</p>";
     }
+
     $stmt->close();
 }
 $conn->close();
 ?>
+
 
 <!DOCTYPE html>
 <html lang="pt">
@@ -89,13 +98,7 @@ $conn->close();
                     <label class="form-label">Senha</label>
                     <input type="password" name="senha" class="form-control" required>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Tipo</label>
-                    <select name="tipo" class="form-control" required>
-                        <option value="cliente">Atleta</option>
-                        <option value="vendedor">Recrutador</option>
-                    </select>
-                </div>
+               
                 <button type="submit" class="btn btn-primary">Registrar</button>
             </form>
         </div>

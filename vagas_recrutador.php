@@ -6,17 +6,38 @@ if (!isset($_SESSION['user_id']) || $_SESSION['tipo'] !== 'vendedor') {
     header("Location: login.php");
     exit();
 }
-// Buscar o nome do usuário logado
-$user_id = intval($_SESSION['user_id']);
-$query = $conn->prepare("SELECT nome_completo FROM usuarios WHERE id = ?");
-$query->bind_param("i", $user_id);
-$query->execute();
-$result = $query->get_result();
-$user = $result->fetch_assoc();
-$nome_usuario = $user['nome_completo'] ?? 'Recrutador';
 
-$vendedor_id = intval($_SESSION['user_id']); // Proteção contra SQL Injection
-$result = $conn->query("SELECT * FROM produtos WHERE vendedor_id = $vendedor_id");
+
+// Admin logado
+$vendedor_id = (int)($_SESSION['user_id'] ?? 0);
+
+// Buscar nome do admin para exibir na sidebar/navbar
+$nome_usuario = 'Recrutador';
+if ($stmt = $conn->prepare('SELECT username FROM usuarios WHERE id = ? LIMIT 1')) {
+    $stmt->bind_param('i', $vendedor_id);
+    if ($stmt->execute()) {
+        $res = $stmt->get_result();
+        if ($rowAdmin = $res->fetch_assoc()) {
+            $nome_usuario = $rowAdmin['username'] ?? 'Recrutador';
+        }
+    }
+    $stmt->close();
+}
+
+// Seleciona produtos vinculados aos recrutadores criados por este admin
+$sql = "
+    SELECT 
+        p.*, 
+        u.username AS recrutador_nome
+    FROM produtos p
+    JOIN usuarios u 
+        ON u.id = p.recrutador_id
+    WHERE p.recrutador_id = $vendedor_id
+    ORDER BY p.id DESC
+";
+
+$result = $conn->query($sql);
+
 ?>
 
 <!DOCTYPE html>
@@ -93,9 +114,7 @@ $result = $conn->query("SELECT * FROM produtos WHERE vendedor_id = $vendedor_id"
     </div>
     <div class="offcanvas-body p-0">
         <a href="dashboard_recrutador.php" class="sidebar"><i class="fa-solid fa-chart-line"></i> Inicio</a>
-        <a href="perfil_recrutador.php" class="sidebar"><i class="fa-solid fa-user"></i> Meu Perfil</a>
-        <a href="listar_vaga.php" class="sidebar"><i class="fa-solid fa-box"></i> Minhas Vagas</a>
-        <a href="ver_candidaturas.php" class="sidebar"><i class="fa-solid fa-money-bill"></i> Ver Candidaturas</a>
+
         <a href="logout.php" class="sidebar text-danger"><i class="fa-solid fa-sign-out-alt"></i> Sair</a>
     </div>
 </div>
@@ -103,19 +122,15 @@ $result = $conn->query("SELECT * FROM produtos WHERE vendedor_id = $vendedor_id"
 <div class="sidebar d-none d-md-block">
     <h4 class="text-center text-white"><?= htmlspecialchars($nome_usuario) ?></h4>
     <a href="dashboard_recrutador.php"><i class="fa-solid fa-chart-line"></i> Inicio</a>
-    <a href="perfil_recrutador.php"><i class="fa-solid fa-user"></i> Meu Perfil</a>
-    <a href="listar_vaga.php"><i class="fa-solid fa-box"></i> Minhas Vagas</a>
-    <a href="ver_candidaturas.php"><i class="fa-solid fa-money-bill"></i> Ver Candidaturas</a>
+  
     <a href="logout.php" class="text-danger"><i class="fa-solid fa-sign-out-alt"></i> Sair</a>
 </div>
 
 <!-- Conteúdo -->
 <div class="content">
     <div class="card shadow p-4">
-        <h2 class="text-center"><i class="fa-solid fa-box"></i> Minhas Vagas</h2>
-        <a href="cadastrar_vaga.php" class="btn btn-success mb-3">
-            <i class="fa-solid fa-plus"></i> Cadastrar Nova Vaga
-        </a>
+        <h2 class="text-center"><i class="fa-solid fa-box"></i> Vagas Disponiveis</h2>
+        
 
         <?php if ($result->num_rows > 0): ?>
             <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
@@ -133,10 +148,11 @@ $result = $conn->query("SELECT * FROM produtos WHERE vendedor_id = $vendedor_id"
                                 <p><strong>Modalidade:</strong> <?= htmlspecialchars($row['modalidade']) ?></p>
                                 <p><strong>Posição:</strong> <?= htmlspecialchars($row['posicao']) ?></p>
                                 <p><strong>Validade:</strong> <?= $data_validade->format('d/m/Y') ?></p>
+                                <p><strong>Responsável:</strong> <?= htmlspecialchars($row['recrutador_nome']) ?></p>
                             </div>
                             <div class="card-footer d-flex justify-content-between">
-                                <a href="editar_vaga.php?id=<?= $row['id'] ?>" class="btn btn-warning btn-sm">Editar</a>
-                                <a href="apagar_vaga.php?id=<?= $row['id'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('Tem certeza que deseja apagar?');">Apagar</a>
+                                <a href="./editar_vaga.php?id=<?= $row['id'] ?>" class="btn btn-warning btn-sm">Ver Detalhes</a>
+                                <a href="./apagar_vaga.php?id=<?= $row['id'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('Tem certeza que deseja apagar?');">Apagar</a>
                             </div>
                         </div>
                     </div>
