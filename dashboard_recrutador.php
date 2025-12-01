@@ -17,11 +17,11 @@ $user = $result->fetch_assoc();
 $nome_usuario = $user['nome_completo'] ?? 'Recrutador';
 
 // Estatísticas
-$total_vagas = $conn->query("SELECT COUNT(*) AS total FROM produtos WHERE vendedor_id = $user_id")->fetch_assoc()['total'];
-$total_candidaturas = $conn->query("SELECT COUNT(*) AS total FROM compras WHERE produto_id IN (SELECT id FROM produtos WHERE vendedor_id = $user_id)")->fetch_assoc()['total'];
-$candidaturas_aprovadas = $conn->query("SELECT COUNT(*) AS total FROM compras WHERE status='Aprovado' AND produto_id IN (SELECT id FROM produtos WHERE vendedor_id = $user_id)")->fetch_assoc()['total'];
-$candidaturas_rejeitadas = $conn->query("SELECT COUNT(*) AS total FROM compras WHERE status='Rejeitado' AND produto_id IN (SELECT id FROM produtos WHERE vendedor_id = $user_id)")->fetch_assoc()['total'];
-$candidaturas_pendentes = $conn->query("SELECT COUNT(*) AS total FROM compras WHERE status='Pendente' AND produto_id IN (SELECT id FROM produtos WHERE vendedor_id = $user_id)")->fetch_assoc()['total'];
+$total_vagas = $conn->query("SELECT COUNT(*) AS total FROM produtos WHERE recrutador_id = $user_id")->fetch_assoc()['total'];
+$total_candidaturas = $conn->query("SELECT COUNT(*) AS total FROM compras WHERE produto_id IN (SELECT id FROM produtos WHERE recrutador_id = $user_id)")->fetch_assoc()['total'];
+$candidaturas_aprovadas = $conn->query("SELECT COUNT(*) AS total FROM compras WHERE status='Aprovado' AND produto_id IN (SELECT id FROM produtos WHERE recrutador_id = $user_id)")->fetch_assoc()['total'];
+$candidaturas_rejeitadas = $conn->query("SELECT COUNT(*) AS total FROM compras WHERE status='Rejeitado' AND produto_id IN (SELECT id FROM produtos WHERE recrutador_id = $user_id)")->fetch_assoc()['total'];
+$candidaturas_pendentes = $conn->query("SELECT COUNT(*) AS total FROM compras WHERE status='Pendente' AND produto_id IN (SELECT id FROM produtos WHERE recrutador_id = $user_id)")->fetch_assoc()['total'];
 ?>
 
 <!DOCTYPE html>

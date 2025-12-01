@@ -123,7 +123,7 @@ $result = $conn->query($sql);
     <h4 class="text-center text-white"><?= htmlspecialchars($nome_usuario) ?></h4>
     <a href="dashboard_recrutador.php"><i class="fa-solid fa-chart-line"></i> Inicio</a>
   
-    <a href="logout.php" class="text-danger"><i class="fa-solid fa-sign-out-alt"></i> Sair</a>
+    <a href="../login.php" class="text-danger"><i class="fa-solid fa-sign-out-alt"></i> Sair</a>
 </div>
 
 <!-- Conteúdo -->
@@ -166,8 +166,8 @@ $result = $conn->query($sql);
             </div>
         <?php endif; ?>
 
-        <a href="./dashboard.php" class="btn btn-secondary mt-3">
-            <i class="fa-solid fa-arrow-left"></i> Voltar
+        <a href="../login.php" class="btn btn-secondary mt-3">
+            <i class="fa-solid fa-arrow-left"></i> Voltarr
         </a>
     </div>
 </div>

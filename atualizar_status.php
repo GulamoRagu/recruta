@@ -21,7 +21,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['compra_id'], $_POST['s
     }
 
     // Verifica se o vendedor tem permissão para atualizar esta compra
-    $verifica_sql = "SELECT produtos.vendedor_id 
+    $verifica_sql = "SELECT produtos.recrutador_id 
                      FROM compras 
                      JOIN produtos ON compras.produto_id = produtos.id 
                      WHERE compras.id = ?";

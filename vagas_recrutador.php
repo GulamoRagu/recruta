@@ -48,62 +48,102 @@ $result = $conn->query($sql);
     <title>Minhas Vagas</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
-    <style>
-        body {
-            background-color: #f8f9fa;
+ <style>
+    body {
+        background: #eef1f5;
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Sidebar */
+    .sidebar {
+        width: 260px;
+        height: 100vh;
+        position: fixed;
+        background: #1e293b;
+        padding-top: 20px;
+        box-shadow: 2px 0px 10px rgba(0,0,0,0.15);
+    }
+
+    .sidebar h4 {
+        font-weight: 600;
+        margin-bottom: 20px;
+    }
+
+    .sidebar a {
+        color: #cbd5e1;
+        padding: 14px 18px;
+        display: block;
+        text-decoration: none;
+        font-size: 15px;
+        border-radius: 6px;
+        margin: 5px 10px;
+        transition: 0.3s ease;
+    }
+
+    .sidebar a:hover {
+        background: #334155;
+        color: white;
+    }
+
+    .sidebar .text-danger:hover {
+        background: #ef4444;
+        color: white !important;
+    }
+
+    /* Conteúdo */
+    .content {
+        margin-left: 270px;
+        padding: 25px;
+    }
+
+    /* Cards */
+    .card-modern {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+    }
+
+    .vaga-card {
+        border-radius: 12px;
+        transition: 0.2s ease;
+        border: none;
+    }
+
+    .vaga-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 18px rgba(0,0,0,0.10);
+    }
+
+    .vaga-card .card-footer {
+        background: transparent;
+        border-top: none;
+    }
+
+    .btn-modern {
+        border-radius: 8px;
+        font-weight: 500;
+    }
+
+    @media (max-width: 768px) {
+        .content {
+            margin-left: 0;
         }
-        /* Sidebar fixa apenas para telas md+ */
-        @media (min-width: 768px) {
-            .sidebar {
-                width: 250px;
-                height: 100vh;
-                position: fixed;
-                background-color: #343a40;
-                padding-top: 20px;
-            }
-            .content {
-                margin-left: 260px;
-                padding: 20px;
-            }
-        }
-        /* Para telas menores, a sidebar some e o conteúdo ocupa toda largura */
-        @media (max-width: 767.98px) {
-            .content {
-                padding: 20px 10px;
-            }
-        }
-        .sidebar a {
-            color: white;
-            padding: 15px;
-            display: block;
-            text-decoration: none;
-            font-size: 18px;
-        }
-        .sidebar a:hover {
-            background-color: #495057;
-        }
-        .card {
-            max-width: 900px;
-            margin: auto;
-        }
-        .card-title {
-            font-weight: bold;
-        }
-        .card-footer {
-            background-color: #f1f1f1;
-        }
-    </style>
+    }
+</style>
+
 </head>
 <body>
 
 <!-- Navbar com botão para abrir sidebar no mobile -->
 <nav class="navbar navbar-dark bg-dark d-md-none">
-    <div class="container-fluid">
-        <button class="btn btn-outline-light" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasSidebar" aria-controls="offcanvasSidebar">
-            <i class="fa-solid fa-bars"></i>
-        </button>
-        <span class="navbar-brand mb-0 h1">Minhas Vagas</span>
-    </div>
+  <div class="card-modern mb-4 text-center">
+    <h2 class="fw-bold text-dark">
+        <i class="fa-solid fa-briefcase"></i> Minhas Vagas
+    </h2>
+    <p class="text-muted">Gerencie todas as vagas publicadas</p>
+</div>
+
 </nav>
 
 <!-- Sidebar fixa para md+ e offcanvas para mobile -->
@@ -113,9 +153,8 @@ $result = $conn->query($sql);
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
     </div>
     <div class="offcanvas-body p-0">
-        <a href="dashboard_recrutador.php" class="sidebar"><i class="fa-solid fa-chart-line"></i> Inicio</a>
-
-        <a href="logout.php" class="sidebar text-danger"><i class="fa-solid fa-sign-out-alt"></i> Sair</a>
+        <a href="dashboard_recrutador.php"><i class="fa-solid fa-house"></i> Início</a>
+<a href="logout.php" class="text-danger"><i class="fa-solid fa-right-from-bracket"></i> Sair</a>
     </div>
 </div>
 
@@ -139,23 +178,36 @@ $result = $conn->query($sql);
                     $hoje = new DateTime();
                     $vencido = $data_validade < $hoje;
                 ?>
-                    <div class="col">
-                        <div class="card h-100 shadow <?= $vencido ? 'border-danger' : '' ?>" style="<?= $vencido ? 'background-color: #ffe6e6;' : '' ?>">
-                            <div class="card-body">
-                                <h6 class="card-title"><?= htmlspecialchars($row['nome']) ?></h6>
-                                <p class="card-text">Descrição: <?= htmlspecialchars($row['descricao']) ?></p>
-                                <p><strong>Idade Máxima:</strong> <?= htmlspecialchars($row['preco']) ?></p>
-                                <p><strong>Modalidade:</strong> <?= htmlspecialchars($row['modalidade']) ?></p>
-                                <p><strong>Posição:</strong> <?= htmlspecialchars($row['posicao']) ?></p>
-                                <p><strong>Validade:</strong> <?= $data_validade->format('d/m/Y') ?></p>
-                                <p><strong>Responsável:</strong> <?= htmlspecialchars($row['recrutador_nome']) ?></p>
-                            </div>
-                            <div class="card-footer d-flex justify-content-between">
-                                <a href="./editar_vaga.php?id=<?= $row['id'] ?>" class="btn btn-warning btn-sm">Ver Detalhes</a>
-                                <a href="./apagar_vaga.php?id=<?= $row['id'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('Tem certeza que deseja apagar?');">Apagar</a>
-                            </div>
-                        </div>
-                    </div>
+                   <div class="col">
+    <div class="card vaga-card shadow-sm p-3 <?= $vencido ? 'border-danger' : '' ?>" 
+         style="<?= $vencido ? 'background-color:#ffe6e6;' : 'background:white;' ?>">
+
+        <h5 class="fw-bold text-primary"><?= htmlspecialchars($row['nome']) ?></h5>
+
+        <p class="text-muted small mb-1"><?= htmlspecialchars($row['descricao']) ?></p>
+
+        <div class="mt-2">
+            <p><strong>Idade Máxima:</strong> <?= htmlspecialchars($row['preco']) ?></p>
+            <p><strong>Modalidade:</strong> <?= htmlspecialchars($row['modalidade']) ?></p>
+            <p><strong>Posição:</strong> <?= htmlspecialchars($row['posicao']) ?></p>
+            <p><strong>Validade:</strong> <?= $data_validade->format('d/m/Y') ?></p>
+            <p><strong>Responsável:</strong> <?= htmlspecialchars($row['recrutador_nome']) ?></p>
+        </div>
+
+        <div class="card-footer d-flex justify-content-between mt-3">
+            <a href="./editar_vaga.php?id=<?= $row['id'] ?>" class="btn btn-warning btn-modern btn-sm">
+                <i class="fa-solid fa-eye"></i> Ver Detalhes
+            </a>
+            <a href="./apagar_vaga.php?id=<?= $row['id'] ?>" 
+               onclick="return confirm('Tem certeza que deseja apagar?');"
+               class="btn btn-danger btn-modern btn-sm">
+                <i class="fa-solid fa-trash"></i> Apagar
+            </a>
+        </div>
+
+    </div>
+</div>
+
                 <?php endwhile; ?>
             </div>
         <?php else: ?>

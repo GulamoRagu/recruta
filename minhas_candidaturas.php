@@ -17,12 +17,23 @@ $result = $query->get_result();
 $user = $result->fetch_assoc();
 $nome_usuario = $user['nome_completo'] ?? 'Atleta';
 
-$query = $conn->prepare("SELECT compras.id, produtos.nome AS produto, produtos.descricao, usuarios.nome_completo AS vendedor_nome, compras.data_compra, compras.status 
-                         FROM compras 
-                         JOIN produtos ON compras.produto_id = produtos.id 
-                         JOIN usuarios ON produtos.vendedor_id = usuarios.id 
-                         WHERE compras.cliente_id = ?
-                         ORDER BY compras.data_compra DESC");
+$query = $conn->prepare("
+    SELECT 
+        compras.id, 
+        produtos.nome AS produto, 
+        produtos.descricao, 
+        recrutador.nome_completo AS recrutador_nome,
+        compras.data_compra, 
+        compras.status
+    FROM compras 
+    JOIN produtos 
+        ON compras.produto_id = produtos.id 
+    JOIN usuarios AS recrutador
+        ON produtos.recrutador_id = recrutador.id
+    WHERE compras.cliente_id = ?
+    ORDER BY compras.data_compra DESC
+");
+
 
 $query->bind_param("i", $cliente_id);
 $query->execute();
@@ -125,7 +136,7 @@ $result = $query->get_result();
                         <tr>
                             <td><?= htmlspecialchars($row['produto']) ?></td>
                             <td><?= htmlspecialchars($row['descricao']) ?></td>
-                            <td><?= htmlspecialchars($row['vendedor_nome']) ?></td>
+                            <td><?= htmlspecialchars($row['recrutador_nome']) ?></td>
                             <td><?= date("d/m/Y H:i", strtotime($row['data_compra'])) ?></td>
                             <td>
                                 <?php if ($row['status'] == 'pendente'): ?>
