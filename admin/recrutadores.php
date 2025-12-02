@@ -93,7 +93,7 @@ $recrutadores = $conn->query("
                             <td><?= htmlspecialchars($row['vagas'] ?? '-') ?></td>
                             <td><?= $row['criado_em'] ?></td>
                             <td class="action-btns">
-                                <a href="./perfil_recrutador.php?id=<?= $row['id'] ?>" class="btn btn-primary btn-sm">
+                                <a href="./editar_recrutador.php?id=<?= $row['id'] ?>" class="btn btn-primary btn-sm">
                                     <i class="fa-solid fa-pen-to-square"></i> Editar
                                 </a>
                                 <a href="./perfil_recrutador.php?id=<?= $row['id'] ?>&acao=apagar" class="btn btn-danger btn-sm" onclick="return confirm('Tem certeza que deseja apagar este recrutador?');">

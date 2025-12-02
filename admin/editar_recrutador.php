@@ -1,7 +1,7 @@
 <?php
 ob_start();
 session_start();
-require 'db.php';
+require '../db.php';
 
 if (!isset($_SESSION['user_id']) || $_SESSION['tipo'] !== 'vendedor') {
     header("Location: login.php");
