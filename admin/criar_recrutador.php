@@ -16,7 +16,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = $_POST['email'];
     $senha = $_POST['senha'];
 
-    $tipo = 'recrutador'; 
+    $tipo = 'vendedor'; 
     $criado_por = intval($_SESSION['user_id']);
     $hash = password_hash($senha, PASSWORD_DEFAULT);
 

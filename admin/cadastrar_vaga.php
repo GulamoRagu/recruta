@@ -100,7 +100,7 @@ if ($stmt = $conn->prepare("SELECT id, username FROM usuarios WHERE tipo = 'vend
 <!-- Sidebar -->
 <div class="sidebar collapse d-md-block bg-dark" id="mobileMenu">
     <h4 class="text-center text-white d-none d-md-block"><?= htmlspecialchars($nome_usuario) ?></h4>
-    <a href="dashboard_recrutador.php"><i class="fa-solid fa-chart-line"></i> Inicio</a>
+    <a href="dashboard.php"><i class="fa-solid fa-chart-line"></i> Inicio</a>
    
     <a href="logout.php" class="text-danger"><i class="fa-solid fa-sign-out-alt"></i> Sair</a>
 </div>
@@ -110,42 +110,54 @@ if ($stmt = $conn->prepare("SELECT id, username FROM usuarios WHERE tipo = 'vend
     <div class="card shadow p-4">
         <h2 class="text-center"><i class="fa-solid fa-plus"></i> Cadastrar Vagas</h2>
 <form action="process_cadastrar_vaga.php" method="POST"> 
-    <div class="mb-3">
-        <label for="nome" class="form-label">Nome da vaga</label>
-        <input type="text" class="form-control" id="nome" name="nome" required>
+  <form action="process_cadastrar_vaga.php" method="POST"> 
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label for="nome" class="form-label">Nome da vaga</label>
+            <input type="text" class="form-control" id="nome" name="nome" required>
+        </div>
+        <div class="col-md-6">
+            <label for="descricao" class="form-label">Descrição</label>
+            <textarea class="form-control" id="descricao" name="descricao" required></textarea>
+        </div>
     </div>
-    <div class="mb-3">
-        <label for="descricao" class="form-label">Descrição</label>
-        <textarea class="form-control" id="descricao" name="descricao" required></textarea>
-    </div>
-    <div class="mb-3">
+<div class="row g-3 mt-2">
+    <div class="col-md-4">
         <label for="genero_permitido" class="form-label">Gênero Permitido</label>
         <select name="genero_permitido" id="genero_permitido" class="form-select" required>
             <option value="">Selecione</option>
             <option value="Ambos">Ambos</option>
             <option value="Masculino">Masculino</option>
             <option value="Feminino">Feminino</option>
-            
         </select>
     </div>
-    <div class="mb-3">
+    <div class="col-md-4">
         <label for="preco" class="form-label">Idade máxima</label>
         <input type="text" class="form-control" id="preco" name="preco" required>
     </div>
-    <div class="mb-3">
-        <label for="modalidade" class="form-label">Modalidade</label>
-        <input type="text" class="form-control" id="modalidade" name="modalidade" required>
-    </div>
-    <div class="mb-3">
-        <label for="posicao" class="form-label">Posição</label>
-        <input type="text" class="form-control" id="posicao" name="posicao" required>
-    </div>
-    <div class="mb-3">
+    <div class="col-md-4">
         <label for="data_validade" class="form-label">Data de Validade</label>
         <input type="date" class="form-control" id="data_validade" name="data_validade" required>
     </div>
-    
-    <div class="mb-3">
+</div>
+
+<div class="row g-3 mt-2">
+   
+
+    <div class="col-md-4">
+        <label for="modalidade" class="form-label">Modalidade</label>
+        <select name="modalidade" id="modalidade" class="form-select" required>
+            <option value="">Selecione</option>
+            <option value="Futebol">Futebol</option>
+            <option value="Basquetebol">Basquetebol</option>
+            <option value="Voleibol">Voleibol</option>
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label for="posicao" class="form-label">Posição</label>
+        <input type="text" class="form-control" id="posicao" name="posicao" required>
+    </div>
+    <div class="col-md-4">
         <label for="recrutador" class="form-label">Recrutador Responsável</label>
         <select name="recrutador" id="recrutador" class="form-select" required>
             <?php foreach ($recrutadores as $rec): ?>
@@ -153,7 +165,12 @@ if ($stmt = $conn->prepare("SELECT id, username FROM usuarios WHERE tipo = 'vend
             <?php endforeach; ?>
         </select>
     </div>
+</div>
+
+<div class="mt-3">
     <button type="submit" class="btn btn-primary w-100">Cadastrar</button>
+</div>
+
 </form>
 
 

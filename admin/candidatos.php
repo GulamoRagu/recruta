@@ -97,8 +97,8 @@ while($row = $resultAll->fetch_assoc()){
                         <tr>
                             <th>ID</th>
                             <th>Foto</th>
-                            <th>Nome</th>
-                            <th>Email</th>
+                            <th>Nome do Atleta</th>
+                            <th>Email do atle</th>
                             <th>Vaga</th>
                             <th>Status</th>
                             <th>Ações</th>

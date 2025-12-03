@@ -119,9 +119,7 @@ $candidaturas_pendentes = $conn->query("SELECT COUNT(*) AS total FROM compras WH
 
 
             <!-- Gráfico -->
-            <div class="chart-container">
-                <canvas id="statusChart"></canvas>
-            </div>
+           
 
         </main>
     </div>

@@ -25,16 +25,32 @@ if ($stmt = $conn->prepare('SELECT username FROM usuarios WHERE id = ? LIMIT 1')
 }
 
 // Seleciona produtos vinculados aos recrutadores criados por este admin
+$status = $_GET['status'] ?? '';
+$genero = $_GET['genero'] ?? '';
+
 $sql = "
-    SELECT 
-        p.*, 
-        u.username AS recrutador_nome
+    SELECT p.*, u.username AS recrutador_nome
     FROM produtos p
-    JOIN usuarios u 
-        ON u.id = p.recrutador_id
+    JOIN usuarios u ON u.id = p.recrutador_id
     WHERE p.recrutador_id = $vendedor_id
-    ORDER BY p.id DESC
 ";
+
+// FILTRO POR STATUS
+if ($status === 'activa') {
+    $sql .= " AND p.data_validade >= CURDATE() ";
+}
+
+if ($status === 'expirada') {
+    $sql .= " AND p.data_validade < CURDATE() ";
+}
+
+// FILTRO POR GÉNERO
+if (!empty($genero)) {
+    $sql .= " AND p.genero_permitido = '$genero' ";
+}
+
+$sql .= " ORDER BY p.id DESC";
+
 
 $result = $conn->query($sql);
 
@@ -170,6 +186,35 @@ $result = $conn->query($sql);
     <div class="card shadow p-4">
         <h2 class="text-center"><i class="fa-solid fa-box"></i> Vagas Disponiveis</h2>
         
+<form method="GET" class="row g-3 mb-4">
+
+    <!-- FILTRO STATUS -->
+    <div class="col-md-4">
+        <label class="form-label">Status</label>
+        <select name="status" class="form-select">
+            <option value="">-- Todos --</option>
+            <option value="activa" <?= ($_GET['status'] ?? '') == 'activa' ? 'selected' : '' ?>>Activa</option>
+            <option value="expirada" <?= ($_GET['status'] ?? '') == 'expirada' ? 'selected' : '' ?>>Expirada</option>
+        </select>
+    </div>
+
+    <!-- FILTRO GÉNERO -->
+    <div class="col-md-4">
+        <label class="form-label">Género</label>
+        <select name="genero" class="form-select">
+            <option value="">-- Todos --</option>
+            <option value="Masculino" <?= ($_GET['genero'] ?? '') == 'Masculino' ? 'selected' : '' ?>>Masculino</option>
+            <option value="Feminino" <?= ($_GET['genero'] ?? '') == 'Feminino' ? 'selected' : '' ?>>Feminino</option>
+           
+        </select>
+    </div>
+
+    <!-- BOTÃO -->
+    <div class="col-md-4 d-flex align-items-end">
+        <button class="btn btn-primary w-100">Filtrar</button>
+    </div>
+
+</form>
 
         <?php if ($result->num_rows > 0): ?>
             <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
@@ -188,22 +233,20 @@ $result = $conn->query($sql);
 
         <div class="mt-2">
             <p><strong>Idade Máxima:</strong> <?= htmlspecialchars($row['preco']) ?></p>
+            <p><strong>Genero:</strong> <?= htmlspecialchars($row['genero_permitido']) ?></p>
             <p><strong>Modalidade:</strong> <?= htmlspecialchars($row['modalidade']) ?></p>
             <p><strong>Posição:</strong> <?= htmlspecialchars($row['posicao']) ?></p>
             <p><strong>Validade:</strong> <?= $data_validade->format('d/m/Y') ?></p>
             <p><strong>Responsável:</strong> <?= htmlspecialchars($row['recrutador_nome']) ?></p>
         </div>
 
-        <div class="card-footer d-flex justify-content-between mt-3">
-            <a href="./editar_vaga.php?id=<?= $row['id'] ?>" class="btn btn-warning btn-modern btn-sm">
-                <i class="fa-solid fa-eye"></i> Ver Detalhes
-            </a>
-            <a href="./apagar_vaga.php?id=<?= $row['id'] ?>" 
-               onclick="return confirm('Tem certeza que deseja apagar?');"
-               class="btn btn-danger btn-modern btn-sm">
-                <i class="fa-solid fa-trash"></i> Apagar
-            </a>
-        </div>
+        <div class="card-footer mt-3">
+    <a href="editar_vaga.php?id=<?= $row['id'] ?>" 
+       class="btn btn-warning btn-modern btn-sm w-100">
+        <i class="fa-solid fa-eye"></i> Editar
+    </a>
+</div>
+
 
     </div>
 </div>

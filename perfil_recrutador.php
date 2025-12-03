@@ -84,9 +84,7 @@ $nome_usuario = $user['nome_completo'] ?? 'Recrutador';
     <div class="sidebar">
         <h4 class="text-center text-white"><?= htmlspecialchars($nome_usuario) ?></h4>
         <a href="dashboard_recrutador.php"><i class="fa-solid fa-chart-line"></i> Inicio</a>
-        <a href="perfil_recrutador.php"><i class="fa-solid fa-user"></i> Perfil</a>
-        <a href="listar_vaga.php"><i class="fa-solid fa-box"></i> Vagas</a>
-        <a href="ver_candidaturas.php"><i class="fa-solid fa-money-bill"></i> Candidaturas</a>
+        
         <a href="logout.php" class="text-danger"><i class="fa-solid fa-sign-out-alt"></i> Sair</a>
     </div>
 

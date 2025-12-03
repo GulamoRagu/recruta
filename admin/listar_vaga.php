@@ -305,9 +305,9 @@ tbody tr:hover {
     <td><?= htmlspecialchars($row['recrutador_nome']) ?></td>
 
     <td class="text-center">
-        <a href="editar_vaga.php?id=<?= $row['id'] ?>" class="btn btn-warning btn-sm me-1">
-            <i class="fa-solid fa-pen"></i>
-        </a>
+       <a href="editar_vaga.php?id=<?= $row['id'] ?>" class="btn btn-warning btn-sm">
+    <i class="fa-solid fa-pen"></i>
+</a>
 
         <a href="apagar_vaga.php?id=<?= $row['id'] ?>"
            onclick="return confirm('Tem certeza que deseja apagar?');"

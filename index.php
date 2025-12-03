@@ -1,3 +1,18 @@
+
+<?php
+ob_start();
+require 'db.php';
+
+// Buscar apenas vagas ativas (não expiradas)
+$sql = "SELECT v.id, v.nome, v.descricao, v.genero_permitido, v.preco, v.modalidade, v.posicao, v.data_validade
+        FROM produtos v
+        WHERE v.data_validade >= CURDATE()
+        ORDER BY v.data_validade DESC";
+
+$result = $conn->query($sql);
+?>
+
+
 <!DOCTYPE html>
 <html lang="pt">
 <head>
@@ -15,7 +30,7 @@
 
     .banner {
       width: 100%;
-      min-height: 100vh;
+      min-height: 50vh;
       background-image: url('foto1.jpg');
       background-size: cover;
       background-position: center;
@@ -124,20 +139,129 @@
   </style>
 </head>
 <body>
+ <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="#">
+      <img src="logo2.png" alt="Sistema AAM" height="40">
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMenu">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+```
+<div class="collapse navbar-collapse" id="navbarMenu">
+  <ul class="navbar-nav ms-auto">
+    <li class="nav-item">
+      <a class="nav-link active" href="index.php">INÍCIO</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="index.php">VAGAS</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="index.php">PESQUISAR</a>
+    </li>
+  </ul>
+</div>
+
+  </div>
+</nav>
+
+<style>
+  /* Evita que o conteúdo fique atrás da navbar fixa */
+  body {
+    padding-top: 70px; /* ajuste conforme a altura da navbar */
+  }
+</style>
+
+
 
   <!-- Banner -->
   <div class="banner">
     <div class="main-container">
-      <h1>Bem-vindo ao Sistema</h1>
+      <h1>Sistema de Recrutamento de Atletas</h1>
       <h2>Acesse sua conta ou crie uma nova!</h2>
       <div class="d-flex flex-column flex-md-row justify-content-center">
         <a href="login.php" class="btn btn-primary btn-custom">Login</a>
-        <a href="register.php" class="btn btn-success btn-custom">Registrar</a>
+        <a href="register.php" class="btn btn-success btn-custom">Registo</a>
       </div>
     </div>
   </div>
 
-  <!-- Sobre a Empresa -->
+<!-- Seção de Vagas Disponíveis com fundo cinza elegante -->
+<div class="container-fluid py-5" style="background-color: #f0f0f0;">
+    <div class="container">
+        <h2 class="text-center mb-5" style="color: #333; font-weight: 600;">Vagas Disponíveis</h2>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            <?php while($row = $result->fetch_assoc()): ?>
+            <div class="col">
+                <div class="card h-100 shadow-sm border-0 rounded-4">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title text-primary mb-3">
+                            <i class="bi bi-briefcase-fill"></i> <?= htmlspecialchars($row['nome']) ?>
+                        </h5>
+                        <p class="card-text"><?= nl2br(htmlspecialchars($row['descricao'])) ?></p>
+                        <p><i class="bi bi-person-fill"></i> <strong>Idade Máxima:</strong> <?= htmlspecialchars($row['preco']) ?></p>
+                        <p><i class="bi bi-gender-ambiguous"></i> <strong>Gênero:</strong> <?= htmlspecialchars($row['genero_permitido']) ?></p>
+                        <p><i class="bi bi-trophy-fill"></i> <strong>Modalidade:</strong> <?= htmlspecialchars($row['modalidade']) ?></p>
+                        <p><i class="bi bi-geo-alt-fill"></i> <strong>Posição:</strong> <?= htmlspecialchars($row['posicao']) ?></p>
+                        <p><i class="bi bi-calendar-check-fill"></i> <strong>Validade:</strong> <?= (new DateTime($row['data_validade']))->format('d/m/Y') ?></p>
+                     <div class="mt-auto text-center">
+    <a href="login.php?id=<?= $row['id'] ?>" class="btn btn-success btn-sm mt-2">
+        <i class="bi bi-send-fill"></i> Faz login para concorrer
+    </a>
+</div>
+
+                    </div>
+                </div>
+            </div>
+            <?php endwhile; ?>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 25px rgba(0,0,0,0.15);
+    }
+    .card-title i {
+        margin-right: 8px;
+    }
+    .card-text, p {
+        color: #555;
+    }
+    .btn-success {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+    }
+</style>
+
+</div>
+
+<style>
+    .card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 25px rgba(0,0,0,0.15);
+    }
+    .card-title i {
+        margin-right: 8px;
+    }
+    .card-text, p {
+        color: #555;
+    }
+</style>
+
+
+ <!-- Sobre a Empresa -->
   <div class="about-section">
     <h2>Sobre a AAM</h2>
     <p>
@@ -148,6 +272,11 @@
     </p>
   </div>
 
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
+
+
+

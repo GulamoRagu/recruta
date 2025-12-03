@@ -15,6 +15,29 @@ $cliente_id = $_SESSION['user_id'];
 if (isset($_GET['id'])) {
     $produto_id = intval($_GET['id']); // Converte para número inteiro
 
+    // Buscar género do atleta
+    $sqlGeneroAtleta = $conn->prepare("SELECT genero FROM usuarios WHERE id = ?");
+    $sqlGeneroAtleta->bind_param("i", $cliente_id);
+    $sqlGeneroAtleta->execute();
+    $genero_atleta = $sqlGeneroAtleta->get_result()->fetch_assoc()['genero'];
+    $sqlGeneroAtleta->close();
+
+    // Buscar género permitido da vaga
+    $sqlGeneroVaga = $conn->prepare("SELECT genero_permitido FROM produtos WHERE id = ?");
+    $sqlGeneroVaga->bind_param("i", $produto_id);
+    $sqlGeneroVaga->execute();
+    $genero_vaga = $sqlGeneroVaga->get_result()->fetch_assoc()['genero_permitido'];
+    $sqlGeneroVaga->close();
+
+    // Verificar compatibilidade de género
+    if (strtolower($genero_atleta) !== strtolower($genero_vaga)) {
+        echo "<script>
+                alert('Não pode candidatar-se! Esta vaga é apenas para: $genero_vaga');
+                window.location='ver_vagas.php';
+              </script>";
+        exit();
+    }
+
     // Verifica se o atleta já se candidatou a esta vaga
     $verifica_candidatura = $conn->prepare("SELECT id FROM compras WHERE cliente_id = ? AND produto_id = ?");
     $verifica_candidatura->bind_param("ii", $cliente_id, $produto_id);
@@ -22,7 +45,6 @@ if (isset($_GET['id'])) {
     $verifica_candidatura->store_result();
 
     if ($verifica_candidatura->num_rows > 0) {
-        // Se já existe candidatura, exibe alerta e redireciona
         echo "<script>
                 alert('Você já se candidatou a esta vaga!');
                 window.location='minhas_candidaturas.php';
@@ -30,7 +52,7 @@ if (isset($_GET['id'])) {
         exit();
     }
 
-    // Insere a nova candidatura na tabela 'candidaturas'
+    // Insere a nova candidatura na tabela 'compras'
     $stmt = $conn->prepare("INSERT INTO compras (cliente_id, produto_id, data_compra, status) VALUES (?, ?, NOW(), 'Pendente')");
     $stmt->bind_param("ii", $cliente_id, $produto_id);
 

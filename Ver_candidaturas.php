@@ -10,7 +10,7 @@ $filtro_status = isset($_GET['status']) ? $_GET['status'] : '';
 
 $sql = "SELECT compras.*, 
                produtos.nome AS produto_nome, 
-               produtos.descricao,
+               produtos.descricao,produtos.genero_permitido,
                usuarios.nome_completo AS cliente_nome, 
                usuarios.idade AS cliente_idade, 
                compras.data_compra, 
@@ -19,6 +19,15 @@ $sql = "SELECT compras.*,
         JOIN produtos ON compras.produto_id = produtos.id
         JOIN usuarios ON compras.cliente_id = usuarios.id
         WHERE produtos.recrutador_id = ?";
+
+        $sql_msg = "SELECT mensagem, data_envio FROM mensagens_status WHERE compra_id = ? AND remetente = 'vendedor'";
+$stmt_msg = $conn->prepare($sql_msg);
+$stmt_msg->bind_param("i", $row['id']); 
+$stmt_msg->execute();
+$result_msg = $stmt_msg->get_result();
+$mensagem_recrutador = $result_msg->fetch_assoc();
+$stmt_msg->close();
+
 
 if ($filtro_status && in_array($filtro_status, ['Pendente','Aprovado','Rejeitado'])) {
     $sql .= " AND compras.status = ?";
@@ -48,49 +57,80 @@ $result = $stmt->get_result();
     <div class="card shadow p-4">
         <h2 class="text-center mb-4"><i class="fa-solid fa-money-bill"></i> Candidaturas</h2>
 
-        <?php if ($result->num_rows > 0): ?>
-            <div class="row row-cols-1 row-cols-md-2 g-4">
-                <?php while ($row = $result->fetch_assoc()): 
-                    // Define cor do badge pelo status
+   <?php if ($result->num_rows > 0): ?>
+    <div class="table-responsive mt-4">
+        <table class="table table-striped table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>#</th>
+                    <th>Vaga</th>
+                    <th>Genero Permitido</th>
+                    <th>Nome do Atleta</th>
+                    <th>Idade</th>
+                    <th>Data de Submissão</th>
+                    <th>Status</th>
+                    <?php if ($user_tipo === 'vendedor'): ?>
+                        <th>Ações</th>
+                    <?php endif; ?>
+                </tr>
+            </thead>
+            <tbody>
+                <?php 
+                $i = 1;
+                while ($row = $result->fetch_assoc()):
                     $badge_class = match($row['status']) {
                         'Aprovado' => 'success',
                         'Rejeitado' => 'danger',
-                        default => 'warning', // Pendente ou outro
+                        default => 'warning',
                     };
                 ?>
-                <div class="col">
-                    <div class="card h-100 shadow-sm border-start border-4 border-primary">
-                        <div class="card-body">
-                            <h5 class="card-title"><?= htmlspecialchars($row['produto_nome']) ?></h5>
-                            <p class="card-text"><strong>Atleta:</strong> <?= htmlspecialchars($row['cliente_nome']) ?></p>
-                            <p class="card-text"><strong>Idade:</strong> <?= number_format($row['cliente_idade']) ?> anos</p>
-                            <p class="card-text"><strong>Data de Submissão:</strong> <?= date("d/m/Y H:i", strtotime($row['data_compra'])) ?></p>
+                <tr>
+                    <td><?= $i++ ?></td>
+                    <td><?= htmlspecialchars($row['produto_nome']) ?></td>
+                    <td><?= htmlspecialchars($row['genero_permitido']) ?></td>
+                    <td><?= htmlspecialchars($row['cliente_nome']) ?></td>
+                    <td><?= number_format($row['cliente_idade']) ?> anos</td>
+                    <td><?= date("d/m/Y H:i", strtotime($row['data_compra'])) ?></td>
 
-                            <p class="card-text mb-3">
-                                <strong>Status:</strong>
-                                <span class="badge bg-<?= $badge_class ?>"><?= htmlspecialchars($row['status']) ?></span>
-                            </p>
+                    <td>
+    <span class="badge bg-<?= $badge_class ?>"><?= $row['status'] ?></span>
+    <?php if (!empty($mensagem_recrutador['mensagem'])): ?>
+        <p class="mt-1 small text-muted"><strong>Mensagem:</strong> <?= nl2br(htmlspecialchars($mensagem_recrutador['mensagem'])) ?></p>
+    <?php endif; ?>
+</td>
 
-                            <?php if ($user_tipo === 'vendedor'): ?>
-                                <form method="POST" action="atualizar_status.php" class="d-flex flex-column flex-sm-row gap-2">
-                                    <input type="hidden" name="compra_id" value="<?= $row['id'] ?>">
-                                    <select name="status" class="form-select form-select-sm" style="min-width: 140px;">
-                                        <option value="Pendente" <?= $row['status'] == 'Pendente' ? 'selected' : '' ?>>Pendente</option>
-                                        <option value="Aprovado" <?= $row['status'] == 'Aprovado' ? 'selected' : '' ?>>Aprovado</option>
-                                        <option value="Rejeitado" <?= $row['status'] == 'Rejeitado' ? 'selected' : '' ?>>Rejeitado</option>
-                                    </select>
-                                    <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-check"></i></button>
-                                </form>
-                                <a href="ver_candidato.php?id=<?= $row['cliente_id'] ?>" class="btn btn-sm btn-outline-primary mt-2">
-                                    <i class="fa-solid fa-user"></i> Ver Candidato
-                                </a>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
+                    <?php if ($user_tipo === 'vendedor'): ?>
+                    <td class="d-flex gap-2">
+
+                        <!-- Atualizar status -->
+                       <form method="POST" action="atualizar_status.php" class="d-flex gap-2 flex-column">
+    <input type="hidden" name="compra_id" value="<?= $row['id'] ?>">
+    <select name="status" class="form-select form-select-sm">
+        <option value="Pendente" <?= $row['status']=='Pendente'?'selected':'' ?>>Pendente</option>
+        <option value="Aprovado" <?= $row['status']=='Aprovado'?'selected':'' ?>>Aprovado</option>
+        <option value="Rejeitado" <?= $row['status']=='Rejeitado'?'selected':'' ?>>Rejeitado</option>
+    </select>
+    <textarea name="mensagem" class="form-control form-control-sm mt-2" placeholder="Mensagem para o atleta (opcional)"></textarea>
+    <button type="submit" class="btn btn-sm btn-primary mt-2">
+        <i class="fa-solid fa-check"></i> Atualizar
+    </button>
+</form>
+
+
+                        <!-- Ver candidato -->
+                        <a href="ver_candidato.php?id=<?= $row['cliente_id'] ?>" class="btn btn-sm btn-outline-primary">
+                            <i class="fa-solid fa-user"></i>
+                        </a>
+
+                    </td>
+                    <?php endif; ?>
+                </tr>
                 <?php endwhile; ?>
-            </div>
-        <?php else: ?>
+            </tbody>
+        </table>
+    </div>
+<?php else: ?>
+
             <div class="alert alert-info text-center">
                 <i class="fa-solid fa-info-circle"></i> Nenhuma candidatura encontrada.
             </div>
