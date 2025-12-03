@@ -3,6 +3,11 @@ ob_start();
 session_start();
 require '../db.php';
 
+// Total de recrutadores cadastrados
+$totalRecrutadores = $conn->query("SELECT COUNT(*) AS total FROM usuarios WHERE tipo='vendedor'")
+                          ->fetch_assoc()['total'];
+
+
 // Buscar recrutadores com vagas alocadas
 $recrutadores = $conn->query("
     SELECT u.*, GROUP_CONCAT(p.nome SEPARATOR ', ') AS vagas
@@ -69,6 +74,13 @@ $recrutadores = $conn->query("
     </div>
 
     <div class="card shadow-sm">
+        <div class="alert alert-info mb-4">
+    <h5 class="mb-0">
+        Total de Recrutadores Inscritos: 
+        <strong><?= $totalRecrutadores ?></strong>
+    </h5>
+</div>
+
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover mb-0 align-middle">
