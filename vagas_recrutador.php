@@ -1,18 +1,18 @@
 <?php
 ob_start();
-include 'db.php';
+require 'db.php';
 session_start();
+
+// 1. Verificação de Acesso
 if (!isset($_SESSION['user_id']) || $_SESSION['tipo'] !== 'vendedor') {
     header("Location: login.php");
     exit();
 }
 
-
-// Admin logado
 $vendedor_id = (int)($_SESSION['user_id'] ?? 0);
-
-// Buscar nome do admin para exibir na sidebar/navbar
 $nome_usuario = 'Recrutador';
+
+// Buscar nome do recrutador
 if ($stmt = $conn->prepare('SELECT username FROM usuarios WHERE id = ? LIMIT 1')) {
     $stmt->bind_param('i', $vendedor_id);
     if ($stmt->execute()) {
@@ -24,35 +24,52 @@ if ($stmt = $conn->prepare('SELECT username FROM usuarios WHERE id = ? LIMIT 1')
     $stmt->close();
 }
 
-// Seleciona produtos vinculados aos recrutadores criados por este admin
-$status = $_GET['status'] ?? '';
-$genero = $_GET['genero'] ?? '';
+// 2. Construção Dinâmica da Query SQL com Prepared Statements (Segurança)
+$status_filtro = $_GET['status'] ?? '';
+$genero_filtro = $_GET['genero'] ?? '';
 
-$sql = "
-    SELECT p.*, u.username AS recrutador_nome
+$sql_base = "
+    SELECT 
+        p.*, u.username AS recrutador_nome
     FROM produtos p
     JOIN usuarios u ON u.id = p.recrutador_id
-    WHERE p.recrutador_id = $vendedor_id
+    WHERE p.recrutador_id = ?
 ";
 
-// FILTRO POR STATUS
-if ($status === 'activa') {
-    $sql .= " AND p.data_validade >= CURDATE() ";
-}
+$tipos = 'i'; // Inicialmente apenas para $vendedor_id
+$parametros = [$vendedor_id];
+$condicoes = [];
 
-if ($status === 'expirada') {
-    $sql .= " AND p.data_validade < CURDATE() ";
+// FILTRO POR STATUS
+if ($status_filtro === 'activa') {
+    $condicoes[] = "p.data_validade >= CURDATE()";
+} elseif ($status_filtro === 'expirada') {
+    $condicoes[] = "p.data_validade < CURDATE()";
 }
 
 // FILTRO POR GÉNERO
-if (!empty($genero)) {
-    $sql .= " AND p.genero_permitido = '$genero' ";
+if (!empty($genero_filtro)) {
+    $condicoes[] = "p.genero_permitido = ?";
+    $tipos .= 's';
+    $parametros[] = $genero_filtro;
 }
 
-$sql .= " ORDER BY p.id DESC";
+// Concatena as condições
+if (!empty($condicoes)) {
+    $sql_base .= " AND " . implode(" AND ", $condicoes);
+}
 
+$sql_base .= " ORDER BY p.id DESC";
 
-$result = $conn->query($sql);
+// Prepara e Executa a Query
+$stmt_vagas = $conn->prepare($sql_base);
+
+// Adiciona os parâmetros e executa
+if (!empty($parametros)) {
+    $stmt_vagas->bind_param($tipos, ...$parametros);
+}
+$stmt_vagas->execute();
+$result = $stmt_vagas->get_result();
 
 ?>
 
@@ -61,215 +78,248 @@ $result = $conn->query($sql);
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Minhas Vagas</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
- <style>
-    body {
-        background: #eef1f5;
-        font-family: 'Inter', sans-serif;
-    }
+    <title>Minhas Vagas | <?= htmlspecialchars($nome_usuario) ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
 
-    /* Sidebar */
-    .sidebar {
-        width: 260px;
-        height: 100vh;
-        position: fixed;
-        background: #1e293b;
-        padding-top: 20px;
-        box-shadow: 2px 0px 10px rgba(0,0,0,0.15);
-    }
-
-    .sidebar h4 {
-        font-weight: 600;
-        margin-bottom: 20px;
-    }
-
-    .sidebar a {
-        color: #cbd5e1;
-        padding: 14px 18px;
-        display: block;
-        text-decoration: none;
-        font-size: 15px;
-        border-radius: 6px;
-        margin: 5px 10px;
-        transition: 0.3s ease;
-    }
-
-    .sidebar a:hover {
-        background: #334155;
-        color: white;
-    }
-
-    .sidebar .text-danger:hover {
-        background: #ef4444;
-        color: white !important;
-    }
-
-    /* Conteúdo */
-    .content {
-        margin-left: 270px;
-        padding: 25px;
-    }
-
-    /* Cards */
-    .card-modern {
-        background: white;
-        border-radius: 12px;
-        padding: 25px;
-        box-shadow: 0 3px 12px rgba(0,0,0,0.08);
-    }
-
-    .vaga-card {
-        border-radius: 12px;
-        transition: 0.2s ease;
-        border: none;
-    }
-
-    .vaga-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 4px 18px rgba(0,0,0,0.10);
-    }
-
-    .vaga-card .card-footer {
-        background: transparent;
-        border-top: none;
-    }
-
-    .btn-modern {
-        border-radius: 8px;
-        font-weight: 500;
-    }
-
-    @media (max-width: 768px) {
-        .content {
-            margin-left: 0;
+    <style>
+        :root {
+            --primary: #007bff;
+            --dark: #1e293b;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --background: #f4f6f9;
         }
-    }
-</style>
 
+        body {
+            background-color: var(--background);
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* Sidebar Moderna (Coerente com outros painéis) */
+        .sidebar {
+            background: linear-gradient(180deg, var(--dark), #212529);
+            color: white;
+            min-width: 250px;
+            max-width: 250px;
+            padding-top: 20px;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+            position: fixed;
+            height: 100%;
+        }
+        .sidebar a {
+            color: white;
+            padding: 12px 25px;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        .sidebar a i { margin-right: 15px; width: 20px; }
+        .sidebar a:hover, .sidebar a.active { 
+            background-color: rgba(255, 255, 255, 0.1); 
+            border-left-color: var(--warning);
+        }
+        .sidebar h4 { text-align: center; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+
+        /* Conteúdo Principal */
+        .content { 
+            flex-grow: 1;
+            margin-left: 250px; 
+            padding: 30px;
+        }
+        .content h2 {
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        /* Card de Vaga */
+        .vaga-card {
+            border-radius: 12px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-left: 5px solid var(--primary); /* Destaque lateral padrão */
+            overflow: hidden;
+            height: 100%;
+        }
+        .vaga-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+        .vaga-header {
+            background-color: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .vaga-card .card-body p {
+            margin-bottom: 5px;
+            font-size: 0.95rem;
+        }
+        .vaga-card .card-footer {
+            background: #fff;
+            border-top: none;
+        }
+
+        /* Estilos de Status */
+        .status-active { 
+            border-left-color: var(--success) !important;
+            background-color: #e6ffed !important;
+        }
+        .status-expired { 
+            border-left-color: var(--danger) !important;
+            background-color: #ffe6e6 !important;
+        }
+        .status-tag {
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        /* Responsividade (Mobile) */
+        @media (max-width: 992px) {
+            .sidebar { display: none !important; }
+            .content { margin-left: 0; padding-top: 10px; }
+            .navbar-mobile { display: block !important; }
+        }
+    </style>
 </head>
 <body>
 
-<!-- Navbar com botão para abrir sidebar no mobile -->
-<nav class="navbar navbar-dark bg-dark d-md-none">
-  <div class="card-modern mb-4 text-center">
-    <h2 class="fw-bold text-dark">
-        <i class="fa-solid fa-briefcase"></i> Minhas Vagas
-    </h2>
-    <p class="text-muted">Gerencie todas as vagas publicadas</p>
-</div>
-
+<nav class="sidebar d-none d-lg-block">
+    <h4 class="text-white"><i class="fa-solid fa-building me-2"></i> <?= htmlspecialchars($nome_usuario) ?></h4>
+    <a href="dashboard_recrutador.php"><i class="fa-solid fa-gauge-high"></i> Inicio</a>
+    <a href="perfil_recrutador.php"><i class="fa-solid fa-user"></i> Meu Perfil</a>
+    <a href="vagas_recrutador.php" class="active"><i class="fa-solid fa-briefcase"></i> Gerir Vagas</a>
+    <a href="ver_candidaturas.php"><i class="fa-solid fa-list-check"></i> Candidaturas</a>
+    <a href="logout.php" class="text-warning mt-auto"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sair</a>
 </nav>
 
-<!-- Sidebar fixa para md+ e offcanvas para mobile -->
-<div class="offcanvas offcanvas-start bg-dark text-white d-md-none" tabindex="-1" id="offcanvasSidebar" aria-labelledby="offcanvasSidebarLabel">
+<nav class="navbar navbar-dark bg-dark sticky-top d-lg-none">
+    <div class="container-fluid">
+        <button class="btn btn-dark" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasSidebar" aria-controls="offcanvasSidebar">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+        <span class="navbar-brand ms-3">Minhas Vagas</span>
+    </div>
+</nav>
+
+<div class="offcanvas offcanvas-start bg-dark text-white" tabindex="-1" id="offcanvasSidebar" aria-labelledby="offcanvasSidebarLabel">
     <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="offcanvasSidebarLabel"><?= htmlspecialchars($nome_usuario) ?></h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
     </div>
     <div class="offcanvas-body p-0">
-        <a href="dashboard_recrutador.php"><i class="fa-solid fa-house"></i> Início</a>
-<a href="logout.php" class="text-danger"><i class="fa-solid fa-right-from-bracket"></i> Sair</a>
+        <a href="dashboard_recrutador.php" class="d-block text-white mb-2"><i class="fa-solid fa-gauge-high"></i> Inicio</a>
+        <a href="perfil_recrutador.php" class="d-block text-white mb-2"><i class="fa-solid fa-user"></i> Meu Perfil</a>
+        <a href="vagas_recrutador.php" class="d-block text-white mb-2 active"><i class="fa-solid fa-briefcase"></i> Gerir Vagas</a>
+        <a href="ver_candidaturas.php" class="d-block text-white mb-2"><i class="fa-solid fa-list-check"></i> Candidaturas</a>
+        <a href="logout.php" class="d-block text-warning mt-4"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sair</a>
     </div>
 </div>
 
-<div class="sidebar d-none d-md-block">
-    <h4 class="text-center text-white"><?= htmlspecialchars($nome_usuario) ?></h4>
-    <a href="dashboard_recrutador.php"><i class="fa-solid fa-chart-line"></i> Inicio</a>
-  
-    <a href="logout.php" class="text-danger"><i class="fa-solid fa-sign-out-alt"></i> Sair</a>
-</div>
-
-<!-- Conteúdo -->
 <div class="content">
-    <div class="card shadow p-4">
-        <h2 class="text-center"><i class="fa-solid fa-box"></i> Vagas Disponiveis</h2>
-        
-<form method="GET" class="row g-3 mb-4">
+    <h2 class="mb-4"><i class="fa-solid fa-briefcase me-2 text-primary"></i> Gestão de Vagas</h2>
 
-    <!-- FILTRO STATUS -->
-    <div class="col-md-4">
-        <label class="form-label">Status</label>
-        <select name="status" class="form-select">
-            <option value="">-- Todos --</option>
-            <option value="activa" <?= ($_GET['status'] ?? '') == 'activa' ? 'selected' : '' ?>>Activa</option>
-            <option value="expirada" <?= ($_GET['status'] ?? '') == 'expirada' ? 'selected' : '' ?>>Expirada</option>
-        </select>
-    </div>
+    <form method="GET" class="card shadow-sm p-3 mb-4">
+        <div class="row g-3 align-items-end">
+            
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-bold small text-muted">Status da Vaga</label>
+                <select name="status" class="form-select">
+                    <option value="">Todas</option>
+                    <option value="activa" <?= ($status_filtro == 'activa' ? 'selected' : '') ?>>Ativa</option>
+                    <option value="expirada" <?= ($status_filtro == 'expirada' ? 'selected' : '') ?>>Expirada</option>
+                </select>
+            </div>
 
-    <!-- FILTRO GÉNERO -->
-    <div class="col-md-4">
-        <label class="form-label">Género</label>
-        <select name="genero" class="form-select">
-            <option value="">-- Todos --</option>
-            <option value="Masculino" <?= ($_GET['genero'] ?? '') == 'Masculino' ? 'selected' : '' ?>>Masculino</option>
-            <option value="Feminino" <?= ($_GET['genero'] ?? '') == 'Feminino' ? 'selected' : '' ?>>Feminino</option>
-           
-        </select>
-    </div>
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-bold small text-muted">Gênero Alvo</label>
+                <select name="genero" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="Masculino" <?= ($genero_filtro == 'Masculino' ? 'selected' : '') ?>>Masculino</option>
+                    <option value="Feminino" <?= ($genero_filtro == 'Feminino' ? 'selected' : '') ?>>Feminino</option>
+                </select>
+            </div>
 
-    <!-- BOTÃO -->
-    <div class="col-md-4 d-flex align-items-end">
-        <button class="btn btn-primary w-100">Filtrar</button>
-    </div>
+            <div class="col-md-4 col-lg-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fa-solid fa-filter me-1"></i> Aplicar Filtros
+                </button>
+            </div>
 
-</form>
+            <div class="col-12 col-lg-4 text-lg-end">
+                <a href="criar_vaga.php" class="btn btn-success w-100 w-lg-auto">
+                    <i class="fa-solid fa-plus-circle me-1"></i> Nova Vaga
+                </a>
+            </div>
 
-        <?php if ($result->num_rows > 0): ?>
-            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                <?php while ($row = $result->fetch_assoc()):
-                    $data_validade = new DateTime($row['data_validade']);
-                    $hoje = new DateTime();
-                    $vencido = $data_validade < $hoje;
-                ?>
-                   <div class="col">
-    <div class="card vaga-card shadow-sm p-3 <?= $vencido ? 'border-danger' : '' ?>" 
-         style="<?= $vencido ? 'background-color:#ffe6e6;' : 'background:white;' ?>">
-
-        <h5 class="fw-bold text-primary"><?= htmlspecialchars($row['nome']) ?></h5>
-
-        <p class="text-muted small mb-1"><?= htmlspecialchars($row['descricao']) ?></p>
-
-        <div class="mt-2">
-            <p><strong>Idade Máxima:</strong> <?= htmlspecialchars($row['preco']) ?></p>
-            <p><strong>Genero:</strong> <?= htmlspecialchars($row['genero_permitido']) ?></p>
-            <p><strong>Modalidade:</strong> <?= htmlspecialchars($row['modalidade']) ?></p>
-            <p><strong>Posição:</strong> <?= htmlspecialchars($row['posicao']) ?></p>
-            <p><strong>Validade:</strong> <?= $data_validade->format('d/m/Y') ?></p>
-            <p><strong>Responsável:</strong> <?= htmlspecialchars($row['recrutador_nome']) ?></p>
         </div>
+    </form>
 
-        <div class="card-footer mt-3">
-    <a href="editar_vaga.php?id=<?= $row['id'] ?>" 
-       class="btn btn-warning btn-modern btn-sm w-100">
-        <i class="fa-solid fa-eye"></i> Editar
+    <?php if ($result->num_rows > 0): ?>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            <?php while ($row = $result->fetch_assoc()):
+                $data_validade = new DateTime($row['data_validade']);
+                $hoje = new DateTime();
+                $vencido = $data_validade < $hoje;
+                $status_classe = $vencido ? 'status-expired' : 'status-active';
+                $status_texto = $vencido ? 'EXPIRADA' : 'ATIVA';
+                $status_badge = $vencido ? 'danger' : 'success';
+            ?>
+                <div class="col">
+                    <div class="card vaga-card shadow-sm <?= $status_classe ?>">
+                        <div class="vaga-header d-flex justify-content-between align-items-center">
+                            <h5 class="fw-bold text-dark mb-0"><?= htmlspecialchars($row['nome']) ?></h5>
+                            <span class="badge bg-<?= $status_badge ?> status-tag"><?= $status_texto ?></span>
+                        </div>
+
+                        <div class="card-body">
+                            <p class="text-muted small mb-3"><?= htmlspecialchars(substr($row['descricao'], 0, 100)) . (strlen($row['descricao']) > 100 ? '...' : '') ?></p>
+                            
+                            <ul class="list-unstyled small">
+                                <li><i class="fa-solid fa-calendar-alt me-2 text-primary"></i> **Validade:** **<?= $data_validade->format('d/m/Y') ?>**</li>
+                                <li><i class="fa-solid fa-male me-2 text-secondary"></i> **Gênero:** <?= htmlspecialchars($row['genero_permitido']) ?></li>
+                                <li><i class="fa-solid fa-ruler-vertical me-2 text-secondary"></i> **Modalidade:** <?= htmlspecialchars($row['modalidade']) ?></li>
+                                <li><i class="fa-solid fa-crosshairs me-2 text-secondary"></i> **Posição:** <?= htmlspecialchars($row['posicao']) ?></li>
+                                <li><i class="fa-solid fa-user-circle me-2 text-secondary"></i> **Responsável:** <?= htmlspecialchars($row['recrutador_nome']) ?></li>
+                            </ul>
+                        </div>
+
+                        <div class="card-footer d-flex justify-content-end">
+                            <a href="editar_vaga.php?id=<?= $row['id'] ?>" 
+                               class="btn btn-warning btn-modern btn-sm me-2">
+                                <i class="fa-solid fa-pencil-alt me-1"></i> Editar
+                            </a>
+                            <a href="ver_candidaturas_vaga.php?vaga_id=<?= $row['id'] ?>" 
+                               class="btn btn-info btn-modern btn-sm text-white">
+                                <i class="fa-solid fa-users me-1"></i> Candidaturas
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            <?php endwhile; ?>
+        </div>
+    <?php else: ?>
+        <div class="alert alert-info text-center shadow-sm p-4">
+            <h4 class="alert-heading"><i class="fa-solid fa-info-circle me-2"></i> Sem Vagas Encontradas</h4>
+            <p>Nenhuma vaga corresponde aos filtros aplicados, ou você ainda não cadastrou nenhuma vaga.</p>
+            <hr>
+            <a href="criar_vaga.php" class="btn btn-success mt-2">
+                <i class="fa-solid fa-plus-circle me-1"></i> Publicar sua primeira vaga!
+            </a>
+        </div>
+    <?php endif; ?>
+
+    <a href="dashboard_recrutador.php" class="btn btn-secondary mt-5">
+        <i class="fa-solid fa-arrow-left"></i> Voltar ao Painel
     </a>
 </div>
 
-
-    </div>
-</div>
-
-                <?php endwhile; ?>
-            </div>
-        <?php else: ?>
-            <div class="alert alert-info text-center">
-                <i class="fa-solid fa-info-circle"></i> Nenhuma vaga cadastrada ainda.
-            </div>
-        <?php endif; ?>
-
-        <a href="dashboard_recrutador.php" class="btn btn-secondary mt-3">
-            <i class="fa-solid fa-arrow-left"></i> Voltar
-        </a>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-<script>
-    // Script para confirmar exclusão já está no onclick do link apagar, então pode remover este bloco se desejar
-</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
 </html>

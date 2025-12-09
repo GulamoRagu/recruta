@@ -1,280 +1,698 @@
 <?php
 ob_start();
 session_start();
-require '../db.php';
+require '../db.php'; // ajusta o caminho se necessário
 
-// Inicializar filtros
-$filtro_idade_inicio = isset($_GET['idade_inicio']) ? intval($_GET['idade_inicio']) : '';
-$filtro_idade_fim = isset($_GET['idade_fim']) ? intval($_GET['idade_fim']) : '';
-$filtro_genero = isset($_GET['genero']) ? $_GET['genero'] : '';
-$filtro_candidatura = isset($_GET['candidatura']) ? $_GET['candidatura'] : '';
-$filtro_status = isset($_GET['status']) ? $_GET['status'] : '';
+// ----------------------------------------------------------------
+// 1. CAPTURA DOS FILTROS (PHP) - ATUALIZADO
+// ----------------------------------------------------------------
+$filtro_genero = $_GET['genero'] ?? ''; // 'M', 'F', ou vazio
+$filtro_submissao = $_GET['submissao'] ?? ''; // 'sim', 'nao', ou vazio
+// NOVOS FILTROS
+$filtro_faixa_etaria = $_GET['faixa_etaria'] ?? ''; // '10-15', '16-20', '21-25', '26+' ou vazio
+$filtro_modalidade = $_GET['modalidade'] ?? ''; // Nome da modalidade ou vazio
 
-// Construir query dinâmica
+// ----------------------------------------------------------------
+// 2. DETEÇÃO DE COLUNAS (idade / preco / modalidade)
+// ----------------------------------------------------------------
+// Verificar existência de colunas na tabela 'usuarios'
+function coluna_existe($conn, $tabela, $coluna) {
+    $t = $conn->real_escape_string($tabela);
+    $c = $conn->real_escape_string($coluna);
+    $q = $conn->query("SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$t' AND COLUMN_NAME = '$c'");
+    if (!$q) return false;
+    return (int)$q->fetch_assoc()['cnt'] > 0;
+}
+
+$idade_field = null;
+if (coluna_existe($conn, 'usuarios', 'idade')) {
+    $idade_field = 'idade';
+} elseif (coluna_existe($conn, 'usuarios', 'preco')) {
+    // conforme a tua mensagem: idades estao em 'preco'
+    $idade_field = 'preco';
+}
+
+// modalidade em usuarios?
+$usuarios_tem_modalidade = coluna_existe($conn, 'usuarios', 'modalidade');
+
+// ----------------------------------------------------------------
+// 3. KPIs GERAIS (contagens simples)
+// ----------------------------------------------------------------
+// Total atletas
+$total_atletas = $conn->query("SELECT COUNT(*) AS total FROM usuarios WHERE tipo='cliente'")->fetch_assoc()['total'];
+
+// Total por género (conta robusta: aceita 'm','masculino','M', etc.)
+$total_masculinos = $conn->query("SELECT COUNT(*) AS total FROM usuarios WHERE tipo='cliente' AND LOWER(COALESCE(genero,'')) LIKE 'm%'")->fetch_assoc()['total'];
+$total_femininos = $conn->query("SELECT COUNT(*) AS total FROM usuarios WHERE tipo='cliente' AND LOWER(COALESCE(genero,'')) LIKE 'f%'")->fetch_assoc()['total'];
+
+// Modalidades: total distinto de modalidades em produtos
+$total_modalidades_db = $conn->query("SELECT DISTINCT modalidade FROM produtos WHERE modalidade IS NOT NULL AND modalidade <> '' ORDER BY modalidade ASC");
+$modalidades_opcoes = [];
+if ($total_modalidades_db) {
+    while($row = $total_modalidades_db->fetch_assoc()) {
+        $modalidades_opcoes[] = htmlspecialchars($row['modalidade']);
+    }
+}
+$total_modalidades = count($modalidades_opcoes);
+
+
+// ----------------------------------------------------------------
+// 4. FAIXA ETÁRIA (apenas se existir campo de idade/preco)
+// ----------------------------------------------------------------
+$faixa_10_15 = 'N/D';
+$faixa_16_20 = 'N/D';
+$faixa_21_25 = 'N/D';
+$faixa_26_more = 'N/D';
+
+if ($idade_field) {
+    // limpar nome de campo para uso seguro (não permite injeção)
+    $idf = $conn->real_escape_string($idade_field);
+
+    $q = $conn->query("
+        SELECT
+            SUM(CASE WHEN $idf BETWEEN 10 AND 15 THEN 1 ELSE 0 END) AS f_10_15,
+            SUM(CASE WHEN $idf BETWEEN 16 AND 20 THEN 1 ELSE 0 END) AS f_16_20,
+            SUM(CASE WHEN $idf BETWEEN 21 AND 25 THEN 1 ELSE 0 END) AS f_21_25,
+            SUM(CASE WHEN $idf >= 26 THEN 1 ELSE 0 END) AS f_26
+        FROM usuarios
+        WHERE tipo='cliente' AND $idf IS NOT NULL AND $idf <> ''
+    ");
+    if ($q) {
+        $r = $q->fetch_assoc();
+        $faixa_10_15 = (int)$r['f_10_15'];
+        $faixa_16_20 = (int)$r['f_16_20'];
+        $faixa_21_25 = (int)$r['f_21_25'];
+        $faixa_26_more = (int)$r['f_26'];
+    } else {
+        // Em caso de erro, mantemos 'N/D'
+    }
+}
+
+// ----------------------------------------------------------------
+// 5. ATLETAS POR MODALIDADE
+// ----------------------------------------------------------------
+$atletas_por_modalidade = [];
+$modalidade_field = $usuarios_tem_modalidade ? 'modalidade' : 'p.modalidade';
+
+if ($usuarios_tem_modalidade) {
+    $q = $conn->query("
+        SELECT COALESCE(modalidade, 'Não Definida') AS modalidade, COUNT(*) AS total
+        FROM usuarios
+        WHERE tipo='cliente'
+        GROUP BY LOWER(modalidade)
+        ORDER BY total DESC
+    ");
+    if ($q) {
+        while ($row = $q->fetch_assoc()) {
+            $atletas_por_modalidade[] = $row;
+        }
+    }
+} else {
+    // fallback: contar atletas por modalidade dos produtos a que se candidataram
+    $q = $conn->query("
+        SELECT COALESCE(p.modalidade, 'Não Definida') AS modalidade, COUNT(DISTINCT c.cliente_id) AS total
+        FROM compras c
+        INNER JOIN produtos p ON p.id = c.produto_id
+        GROUP BY LOWER(p.modalidade)
+        ORDER BY total DESC
+    ");
+    if ($q) {
+        while ($row = $q->fetch_assoc()) {
+            $atletas_por_modalidade[] = $row;
+        }
+    }
+}
+
+// ----------------------------------------------------------------
+// 6. LISTA DE ATLETAS QUE EFECTUARAM SUBMISSÕES (candidaturas)
+// ----------------------------------------------------------------
+$atletas_com_submissao = [];
+$q = $conn->query("
+    SELECT DISTINCT u.id, u.nome_completo, u.idade, u.email, u.telefone, u.posicao
+    FROM usuarios u
+    INNER JOIN compras c ON c.cliente_id = u.id
+    WHERE u.tipo='cliente'
+    ORDER BY u.nome_completo ASC
+");
+if ($q) {
+    while ($r = $q->fetch_assoc()) {
+        $atletas_com_submissao[] = $r;
+    }
+}
+
+// ----------------------------------------------------------------
+// 7. CONSTRUÇÃO DA QUERY PRINCIPAL (TABELA) - ATUALIZADO COM NOVOS FILTROS
+// ----------------------------------------------------------------
+$where_clauses = ["u.tipo='cliente'"];
+
+// filtro genero
+if (!empty($filtro_genero)) {
+    $genero_safe = $conn->real_escape_string($filtro_genero);
+    // permitimos 'M'/'F' ou texto
+    if (strtolower($genero_safe) === 'm') {
+        $where_clauses[] = "LOWER(u.genero) LIKE 'm%'";
+    } elseif (strtolower($genero_safe) === 'f') {
+        $where_clauses[] = "LOWER(u.genero) LIKE 'f%'";
+    } else {
+        $where_clauses[] = "LOWER(u.genero) = LOWER('$genero_safe')";
+    }
+}
+
+// filtro submissao (sim/nao)
+if ($filtro_submissao === 'sim') {
+    // atletas com candidaturas
+    $where_clauses[] = " (SELECT COUNT(*) FROM compras c2 WHERE c2.cliente_id = u.id) > 0 ";
+} elseif ($filtro_submissao === 'nao') {
+    $where_clauses[] = " (SELECT COUNT(*) FROM compras c2 WHERE c2.cliente_id = u.id) = 0 ";
+}
+
+// filtro faixa etaria (NOVO)
+if ($idade_field && !empty($filtro_faixa_etaria)) {
+    $idf = $conn->real_escape_string($idade_field);
+    switch ($filtro_faixa_etaria) {
+        case '10-15':
+            $where_clauses[] = "u.$idf BETWEEN 10 AND 15";
+            break;
+        case '16-20':
+            $where_clauses[] = "u.$idf BETWEEN 16 AND 20";
+            break;
+        case '21-25':
+            $where_clauses[] = "u.$idf BETWEEN 21 AND 25";
+            break;
+        case '26+':
+            $where_clauses[] = "u.$idf >= 26";
+            break;
+    }
+}
+
+// filtro modalidade (NOVO)
+$join_compras_produtos = false;
+if (!empty($filtro_modalidade)) {
+    $modalidade_safe = $conn->real_escape_string($filtro_modalidade);
+    
+    if ($usuarios_tem_modalidade) {
+        // Se a coluna 'modalidade' estiver na tabela 'usuarios'
+        $where_clauses[] = "u.modalidade = '$modalidade_safe'";
+    } else {
+        // Se a modalidade for determinada pelas candidaturas (tabela 'produtos')
+        // Adicionamos um JOIN específico para o filtro
+        $join_compras_produtos = true;
+        $where_clauses[] = "p_f.modalidade = '$modalidade_safe'";
+    }
+}
+
+$where_sql = count($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
+
+// Ajustar os JOINs da query principal
+$extra_joins = '';
+$group_by_fields = 'u.id'; // Manter o GROUP BY principal em u.id
+
+if ($join_compras_produtos) {
+    // Se o filtro de modalidade usa 'produtos', precisamos desse JOIN para o filtro
+    $extra_joins .= "
+        INNER JOIN compras c_f ON c_f.cliente_id = u.id
+        INNER JOIN produtos p_f ON p_f.id = c_f.produto_id
+    ";
+    // O LEFT JOIN c/p continua para a coluna 'vagas_candidatadas'
+}
+
+// Query principal lista atletas (mantive teu GROUP_CONCAT para vagas candidatadas)
 $sql = "
-    SELECT u.*, 
-           GROUP_CONCAT(p.nome SEPARATOR ', ') AS vagas_candidatadas,
-           GROUP_CONCAT(c.status SEPARATOR ', ') AS status_candidaturas
+    SELECT 
+        u.*, 
+        GROUP_CONCAT(DISTINCT p.nome SEPARATOR ', ') AS vagas_candidatadas
     FROM usuarios u
     LEFT JOIN compras c ON c.cliente_id = u.id
     LEFT JOIN produtos p ON p.id = c.produto_id
-    WHERE u.tipo='cliente'
+    $extra_joins
+    $where_sql
+    GROUP BY $group_by_fields
+    ORDER BY u.criado_em DESC
 ";
 
-if($filtro_idade_inicio != '' && $filtro_idade_fim != '') {
-    $sql .= " AND u.idade BETWEEN ".$filtro_idade_inicio." AND ".$filtro_idade_fim;
-} elseif($filtro_idade_inicio != '') {
-    $sql .= " AND u.idade >= ".$filtro_idade_inicio;
-} elseif($filtro_idade_fim != '') {
-    $sql .= " AND u.idade <= ".$filtro_idade_fim;
-}
-
-if($filtro_genero != '') {
-    $sql .= " AND u.genero = '".$conn->real_escape_string($filtro_genero)."'";
-}
-
-if($filtro_candidatura == 'sim') {
-    $sql .= " AND c.id IS NOT NULL";
-} elseif($filtro_candidatura == 'nao') {
-    $sql .= " AND c.id IS NULL";
-}
-
-if($filtro_status != '') {
-    $sql .= " AND c.status = '".$conn->real_escape_string($filtro_status)."'";
-}
-
-$sql .= " GROUP BY u.id ORDER BY u.criado_em DESC";
-
 $atletas = $conn->query($sql);
+
 ?>
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciar Usuários</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Gerenciar Atletas - Relatórios</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            /* Cores Elegantes */
+            --primary-dark: #123456; /* Azul Marinho Escuro */
+            --primary-light: #5A7EA8; /* Azul Suave */
+            --accent: #E8B949; /* Dourado/Âmbar (Para Destaque e KPIs) */
+            --bg-light: #F8F9FA;
+            --text-dark: #343A40;
+            --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        body { 
+            background: var(--bg-light); 
+            font-family: 'Poppins', sans-serif; 
+            color: var(--text-dark);
+        }
+
+        /* Navbar Aprimorada */
+        .navbar-dark {
+            background-color: var(--primary-dark) !important;
+        }
+        .navbar-brand {
+            font-weight: 700;
+            color: var(--accent) !important;
+        }
+
+        /* Título Principal */
+        .page-title {
+            color: var(--primary-dark);
+            font-weight: 800;
+        }
+
+        /* Cartões KPI (Melhorados e Reduzidos) */
+        .card-kpi { 
+            border-radius: 8px; /* Ligeiramente menor */
+            box-shadow: var(--shadow-subtle); 
+            padding: 10px; /* Redução de padding */
+            border: none;
+            transition: transform 0.2s;
+            height: 100%; /* Garante que todos tenham a mesma altura */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .card-kpi:hover {
+            transform: translateY(-2px); /* Efeito de hover mais sutil */
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.08);
+        }
+        .kpi-icon {
+            font-size: 1.5rem; /* Icone menor */
+            color: var(--accent);
+            margin-bottom: 5px;
+        }
+        .kpi-title { 
+            font-size: 0.75rem; /* Título menor */
+            color: #6c757d; 
+            font-weight: 600;
+            line-height: 1.2;
+        }
+        .kpi-value { 
+            font-size: 1.5rem; /* Valor menor */
+            font-weight: 800;
+            color: var(--primary-dark);
+            line-height: 1.2;
+        }
+
+        /* Cartões de Conteúdo e Filtros */
+        .card {
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+        .card-header-custom {
+            background-color: var(--primary-light);
+            color: white;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            padding: 10px 15px; /* Redução de padding */
+            font-weight: 600;
+        }
+        
+        /* Lista de Modalidades/Submissões */
+        .modalidade-list { 
+            max-height: 200px; /* Reduz a altura máxima */
+            overflow-y:auto; 
+            font-size: 0.85rem; /* Reduz a fonte */
+        }
+        .list-group-item { 
+            border-color: rgba(0, 0, 0, 0.08); 
+            padding: 8px 15px; /* Reduz o padding da lista */
+        }
+
+        /* Filtros */
+        .form-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .form-select, .form-control {
+            font-size: 0.9rem; /* Reduz a fonte dos inputs */
+        }
+
+        /* Tabela */
+        .table-responsive {
+            border-radius: 0 0 12px 12px;
+            overflow: hidden;
+        }
+        .table thead th {
+            background-color: #E9ECEF; 
+            color: var(--text-dark);
+            font-weight: 600;
+            border-bottom: 2px solid var(--primary-light);
+            vertical-align: middle;
+            font-size: 0.8rem; /* Título da tabela menor */
+            padding: 8px; /* Reduz padding do cabeçalho */
+        }
+        .table-hover > tbody > tr:hover > td, 
+        .table-hover > tbody > tr:hover > th { 
+            background: #e6f0f7;
+        }
+        .table-striped > tbody > tr:nth-of-type(odd) > * {
+            --bs-table-bg-type: #f6f7f8; /* Listras mais claras */
+        }
+        /* Classe customizada para tabela principal */
+        .table.small td, .table.small th {
+            padding: 0.4rem; /* Diminui o padding das células */
+            font-size: 0.75rem; /* Fonte da célula menor */
+        }
+        .badge.bg-info {
+            background-color: var(--accent) !important;
+            color: var(--primary-dark);
+            font-weight: 700;
+        }
+    </style>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="#">Dashboard Admin</a>
-    <div class="d-flex">
-      <a href="dashboard.php" class="btn btn-light me-2">Voltar ao Dashboard</a>
-      <a href="logout.php" class="btn btn-danger">Sair</a>
+
+<nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#"><i class="fa-solid fa-gauge-high me-2"></i> ADMIN PANEL</a>
+        <div class="d-flex">
+            <a href="dashboard.php" class="btn btn-outline-light btn-sm me-2"><i class="fa-solid fa-arrow-left me-1"></i> Dashboard</a>
+            <a href="../login.php" class="btn btn-danger btn-sm"><i class="fa-solid fa-right-from-bracket me-1"></i> Sair</a>
+        </div>
     </div>
-  </div>
 </nav>
 
-<div class="container my-5">
-    <h1 class="mb-4 text-center">Atletas</h1>
+<div class="container-fluid my-3">
+    <h1 class="mb-3 text-center page-title fs-3"><i class="fa-solid fa-users-viewfinder me-2 text-danger"></i> Relatórios - Atletas</h1>
 
-    <!-- FORMULÁRIO DE FILTROS -->
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-info text-white">
-            <h5 class="mb-0">Filtrar Atletas</h5>
+    <div class="row g-2 mb-3">
+        
+        <div class="col-6 col-md-3 col-lg-2">
+            <div class="card card-kpi text-center">
+                <i class="fa-solid fa-users kpi-icon"></i>
+                <div class="kpi-title">Total Atletas</div>
+                <div class="kpi-value"><?= (int)$total_atletas ?></div>
+            </div>
         </div>
-        <div class="card-body">
-            <form method="GET" class="row g-3">
-                <div class="col-md-2">
-                    <label>Idade Início</label>
-                    <input type="number" name="idade_inicio" class="form-control" value="<?= htmlspecialchars($filtro_idade_inicio) ?>">
+
+        <div class="col-6 col-md-3 col-lg-2">
+            <div class="card card-kpi text-center">
+                <i class="fa-solid fa-person kpi-icon"></i>
+                <div class="kpi-title">Masculinos</div>
+                <div class="kpi-value"><?= (int)$total_masculinos ?></div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3 col-lg-2">
+            <div class="card card-kpi text-center">
+                <i class="fa-solid fa-person-dress kpi-icon"></i>
+                <div class="kpi-title">Femininos</div>
+                <div class="kpi-value"><?= (int)$total_femininos ?></div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3 col-lg-2">
+            <div class="card card-kpi text-center">
+                <i class="fa-solid fa-trophy kpi-icon"></i>
+                <div class="kpi-title">Modalidades</div>
+                <div class="kpi-value"><?= (int)$total_modalidades ?></div>
+            </div>
+        </div>
+    
+        <div class="col-6 col-md-3 col-lg-1">
+            <div class="card card-kpi text-center">
+                <i class="fa-solid fa-child kpi-icon" style="color:#5A7EA8;"></i>
+                <div class="kpi-title">10–15</div>
+                <div class="kpi-value"><?= is_numeric($faixa_10_15) ? $faixa_10_15 : 'N/D' ?></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 col-lg-1">
+            <div class="card card-kpi text-center">
+                <i class="fa-solid fa-user-graduate kpi-icon" style="color:#5A7EA8;"></i>
+                <div class="kpi-title">16–20</div>
+                <div class="kpi-value"><?= is_numeric($faixa_16_20) ? $faixa_16_20 : 'N/D' ?></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 col-lg-1">
+            <div class="card card-kpi text-center">
+                <i class="fa-solid fa-briefcase kpi-icon" style="color:#5A7EA8;"></i>
+                <div class="kpi-title">21–25</div>
+                <div class="kpi-value"><?= is_numeric($faixa_21_25) ? $faixa_21_25 : 'N/D' ?></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 col-lg-1">
+            <div class="card card-kpi text-center">
+                <i class="fa-solid fa-user-tie kpi-icon" style="color:#5A7EA8;"></i>
+                <div class="kpi-title">26+</div>
+                <div class="kpi-value"><?= is_numeric($faixa_26_more) ? $faixa_26_more : 'N/D' ?></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3 g-3">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header card-header-custom p-2">
+                    <i class="fa-solid fa-ranking-star me-2"></i> Atletas por Modalidade
                 </div>
-                <div class="col-md-2">
-                    <label>Idade Fim</label>
-                    <input type="number" name="idade_fim" class="form-control" value="<?= htmlspecialchars($filtro_idade_fim) ?>">
+                <div class="card-body p-0">
+                    <div class="modalidade-list">
+                        <table class="table table-sm mb-0 small">
+                            <thead class="table-light">
+                                <tr><th>Modalidade</th><th class="text-end">Atletas</th></tr>
+                            </thead>
+                            <tbody>
+                                <?php if (count($atletas_por_modalidade) === 0): ?>
+                                    <tr><td colspan="2" class="text-muted text-center p-3">Nenhuma modalidade encontrada.</td></tr>
+                                <?php else: ?>
+                                    <?php foreach ($atletas_por_modalidade as $m): ?>
+                                        <tr>
+                                            <td><i class="fa-solid fa-baseball-bat-ball me-1 text-muted"></i><?= htmlspecialchars($m['modalidade']) ?></td>
+                                            <td class="text-end fw-bold text-primary-dark"><?= (int)$m['total'] ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <div class="col-md-2">
-                    <label>Género</label>
-                    <select name="genero" class="form-control">
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header card-header-custom p-2">
+                    <i class="fa-solid fa-paper-plane me-2"></i> Atletas c/ Submissões (<span class="badge bg-light text-primary-dark fw-bold"><?= count($atletas_com_submissao) ?></span>)
+                </div>
+                <div class="card-body p-0">
+                    <div style="max-height:200px; overflow-y:auto;">
+                        <ul class="list-group list-group-flush">
+                            <?php if (count($atletas_com_submissao) === 0): ?>
+                                <li class="list-group-item text-muted text-center p-3">Nenhum atleta com submissões encontrado.</li>
+                            <?php else: ?>
+                                <?php foreach ($atletas_com_submissao as $a): ?>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center small">
+                                        <div>
+                                            <strong><i class="fa-solid fa-user-check me-1 text-success"></i><?= htmlspecialchars($a['nome_completo']) ?></strong><br>
+                                            <small class="text-muted" style="font-size: 0.7rem;"><i class="fa-solid fa-envelope me-1"></i><?= htmlspecialchars($a['email']) ?></small>
+                                        </div>
+                                        <div class="text-end">
+                                            <a href="perfil_atleta_admin.php?id=<?= $a['id'] ?>" class="btn btn-sm btn-outline-dark py-0 px-1" title="Ver Detalhes">
+                                                <i class="fa-solid fa-magnifying-glass"></i>
+                                            </a>
+                                        </div>
+                                    </li>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card shadow-sm mb-3">
+        <div class="card-body p-3">
+            <h5 class="card-title text-primary-dark fw-bold mb-2 fs-6"><i class="fa-solid fa-sliders me-1"></i> Opções de Filtragem</h5>
+            <form method="GET" class="row g-2 align-items-end">
+                
+                <div class="col-md-3 col-lg-2">
+                    <label for="genero" class="form-label mb-1">Gênero</label>
+                    <select class="form-select form-select-sm" id="genero" name="genero">
                         <option value="">Todos</option>
-                        <option value="Masculino" <?= $filtro_genero=='Masculino'?'selected':'' ?>>Masculino</option>
-                        <option value="Feminino" <?= $filtro_genero=='Feminino'?'selected':'' ?>>Feminino</option>
+                        <option value="M" <?= $filtro_genero === 'M' ? 'selected' : '' ?>>Masculino</option>
+                        <option value="F" <?= $filtro_genero === 'F' ? 'selected' : '' ?>>Feminino</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label>Candidatura</label>
-                    <select name="candidatura" class="form-control">
+
+                <div class="col-md-3 col-lg-2">
+                    <label for="submissao" class="form-label mb-1">Candidatura</label>
+                    <select class="form-select form-select-sm" id="submissao" name="submissao">
                         <option value="">Todos</option>
-                        <option value="sim" <?= $filtro_candidatura=='sim'?'selected':'' ?>>Com Candidatura</option>
-                        <option value="nao" <?= $filtro_candidatura=='nao'?'selected':'' ?>>Sem Candidatura</option>
+                        <option value="sim" <?= $filtro_submissao === 'sim' ? 'selected' : '' ?>>Sim</option>
+                        <option value="nao" <?= $filtro_submissao === 'nao' ? 'selected' : '' ?>>Não</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label>Status Candidatura</label>
-                    <select name="status" class="form-control">
-                        <option value="">Todos</option>
-                        <option value="Pendente" <?= $filtro_status=='Pendente'?'selected':'' ?>>Pendente</option>
-                        <option value="Aceita" <?= $filtro_status=='Aceita'?'selected':'' ?>>Aceita</option>
-                        <option value="Rejeitada" <?= $filtro_status=='Rejeitada'?'selected':'' ?>>Rejeitada</option>
+
+                <div class="col-md-3 col-lg-3">
+                    <label for="faixa_etaria" class="form-label mb-1">Faixa Etária</label>
+                    <select class="form-select form-select-sm" id="faixa_etaria" name="faixa_etaria" <?= $idade_field ? '' : 'disabled' ?>>
+                        <option value="">Todas</option>
+                        <option value="10-15" <?= $filtro_faixa_etaria === '10-15' ? 'selected' : '' ?>>10 a 15 anos</option>
+                        <option value="16-20" <?= $filtro_faixa_etaria === '16-20' ? 'selected' : '' ?>>16 a 20 anos</option>
+                        <option value="21-25" <?= $filtro_faixa_etaria === '21-25' ? 'selected' : '' ?>>21 a 25 anos</option>
+                        <option value="26+" <?= $filtro_faixa_etaria === '26+' ? 'selected' : '' ?>>26 anos ou mais</option>
+                    </select>
+                    <?php if (!$idade_field): ?>
+                        <small class="text-danger" style="font-size: 0.7rem;">Campo 'idade' ou 'preco' ausente.</small>
+                    <?php endif; ?>
+                </div>
+
+                <div class="col-md-3 col-lg-3">
+                    <label for="modalidade" class="form-label mb-1">Modalidade</label>
+                    <select class="form-select form-select-sm" id="modalidade" name="modalidade">
+                        <option value="">Todas</option>
+                        <?php foreach ($modalidades_opcoes as $modalidade): ?>
+                            <option value="<?= $modalidade ?>" <?= $filtro_modalidade === $modalidade ? 'selected' : '' ?>><?= $modalidade ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="col-12 text-end mt-2">
-                    <button type="submit" class="btn btn-primary">Filtrar</button>
-                    <a href="usuarios.php" class="btn btn-secondary">Limpar</a>
+                
+                <div class="col-md-12 col-lg-2 d-flex justify-content-end pt-2">
+                    <button type="submit" class="btn btn-dark btn-sm me-2" style="background-color: var(--primary-dark);"><i class="fa-solid fa-magnifying-glass"></i> Aplicar</button>
+                    <a href="?genero=&submissao=&faixa_etaria=&modalidade=" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-xmark"></i> Limpar</a>
                 </div>
             </form>
         </div>
     </div>
-
-    <!-- TABELA DE ATLETAS -->
-    <div class="card mb-5 shadow-sm">
-        <div class="card-header bg-success text-white">
-            <h3 class="mb-0">Atletas Cadastrados</h3>
+    <div class="card shadow">
+        <div class="card-header card-header-custom p-2">
+            <h3 class="mb-0 fs-5"><i class="fa-solid fa-list-ul me-2"></i> Tabela de Atletas (<?= $atletas ? $atletas->num_rows : '0' ?>)</h3>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-
-            <?php
-// Totais por gênero
-$total_masculino = $conn->query("SELECT COUNT(*) AS total FROM usuarios WHERE tipo='cliente' AND genero='Masculino'")->fetch_assoc()['total'];
-$total_feminino = $conn->query("SELECT COUNT(*) AS total FROM usuarios WHERE tipo='cliente' AND genero='Feminino'")->fetch_assoc()['total'];
-
-// Totais de candidaturas
-$total_candidaturas = $conn->query("SELECT COUNT(*) AS total FROM compras")->fetch_assoc()['total'];
-$total_com_candidatura = $conn->query("SELECT COUNT(DISTINCT cliente_id) AS total FROM compras")->fetch_assoc()['total'];
-$total_sem_candidatura = $conn->query("SELECT COUNT(*) AS total FROM usuarios WHERE tipo='cliente' AND id NOT IN (SELECT DISTINCT cliente_id FROM compras)")->fetch_assoc()['total'];
-
-// Totais por status
-$total_pendente = $conn->query("SELECT COUNT(*) AS total FROM compras WHERE status='Pendente'")->fetch_assoc()['total'];
-$total_aprovado = $conn->query("SELECT COUNT(*) AS total FROM compras WHERE status='Aceita'")->fetch_assoc()['total'];
-$total_rejeitado = $conn->query("SELECT COUNT(*) AS total FROM compras WHERE status='Rejeitada'")->fetch_assoc()['total'];
-$total_geral = $conn->query("SELECT COUNT(*) AS total FROM usuarios WHERE tipo='cliente'")->fetch_assoc()['total'];
-?>
-
-<div class="mb-3">
- <div class="d-flex flex-wrap justify-content-center gap-3 mb-4">
-
-<!-- Card Gênero -->
-<div class="card shadow-sm p-2 text-center" style="min-width: 220px;">
-    <div class="card-body p-2">
-        <h6 class="card-title text-muted mb-2">GÊNERO</h6>
-        <div class="d-flex justify-content-between">
-            <span class="badge bg-secondary rounded-pill px-2 py-1">TOTAL=<?= $total_geral ?></span>
-            <span class="badge bg-primary rounded-pill px-2 py-1">MASC=<?= $total_masculino ?></span>
-            <span class="badge bg-danger rounded-pill px-2 py-1">FEM=<?= $total_feminino ?></span>
+                <table id="tableAtletas" class="table table-hover table-striped mb-0 small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th><i class="fa-solid fa-user"></i> Nome Completo</th>
+                            <th><i class="fa-solid fa-cake-candles"></i> Idade</th>
+                            <th><i class="fa-solid fa-at"></i> Email</th>
+                            <th><i class="fa-solid fa-phone"></i> Telefone</th>
+                            <th><i class="fa-solid fa-crosshairs"></i> Posição</th>
+                            <th><i class="fa-solid fa-shield-halved"></i> Modalidade</th>
+                            <th><i class="fa-solid fa-check"></i> Candidaturas</th>
+                            <th><i class="fa-solid fa-screwdriver-wrench"></i> Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if ($atletas && $atletas->num_rows > 0): ?>
+                            <?php while($row = $atletas->fetch_assoc()): ?>
+                            <tr>
+                                <td><?= $row['id'] ?></td>
+                                <td class="fw-bold"><?= htmlspecialchars($row['nome_completo']) ?></td>
+                                <td><?= htmlspecialchars($row['idade'] ?? ($row['preco'] ?? 'N/D')) ?></td>
+                                <td><?= htmlspecialchars($row['email']) ?></td>
+                                <td><?= htmlspecialchars($row['telefone']) ?></td>
+                                <td><?= htmlspecialchars($row['posicao'] ?? 'N/D') ?></td>
+                                <td><?= htmlspecialchars($usuarios_tem_modalidade ? ($row['modalidade'] ?? 'N/D') : 'Via Produto') ?></td>
+                                <td>
+                                    <span class="badge <?= $row['vagas_candidatadas'] ? 'bg-info' : 'bg-light text-muted' ?>">
+                                        <?= $row['vagas_candidatadas'] ? 'Sim' : 'Não' ?>
+                                    </span>
+                                </td>
+                                <td class="text-nowrap">
+                                    <a href="../perfil_atleta.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-primary py-0 px-1 me-1" title="Ver Detalhes">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </a>
+                                    <a href="deletar_atleta.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-danger py-0 px-1" title="Apagar Atleta" onclick="return confirm('Tem certeza que deseja apagar este atleta e todos os seus dados?');">
+                                        <i class="fa-solid fa-trash-alt"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="9" class="text-center p-3 text-muted">Nenhum atleta encontrado com os filtros aplicados.</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
-</div>
+    <hr class="my-3">
 
-<!-- Card Candidaturas -->
-<div class="card shadow-sm p-2 text-center" style="min-width: 220px;">
-    <div class="card-body p-2">
-        <h6 class="card-title text-muted mb-2">CANDIDATURAS</h6>
-        <div class="d-flex justify-content-between">
-            <span class="badge bg-info rounded-pill px-2 py-1">TOTAL=<?= $total_candidaturas ?></span>
-            <span class="badge bg-success rounded-pill px-2 py-1">COM=<?= $total_com_candidatura ?></span>
-            <span class="badge bg-warning text-dark rounded-pill px-2 py-1">SEM=<?= $total_sem_candidatura ?></span>
-        </div>
+    <div class="d-flex justify-content-end gap-2 mb-3">
+        <button id="btnExportPDF" class="btn btn-danger btn-sm shadow-sm">
+            <i class="fa-solid fa-file-pdf me-1"></i> Exportar (PDF)
+        </button>
+        <button id="btnExportExcel" class="btn btn-success btn-sm shadow-sm">
+            <i class="fa-solid fa-file-excel me-1"></i> Exportar (Excel)
+        </button>
     </div>
-</div>
-
-<!-- Card Status -->
-<div class="card shadow-sm p-2 text-center" style="min-width: 220px;">
-    <div class="card-body p-2">
-        <h6 class="card-title text-muted mb-2">STATUS</h6>
-        <div class="d-flex justify-content-between">
-            <span class="badge bg-secondary rounded-pill px-2 py-1">TODOS=<?= $total_candidaturas ?></span>
-            <span class="badge bg-primary rounded-pill px-2 py-1">PEND=<?= $total_pendente ?></span>
-            <span class="badge bg-success rounded-pill px-2 py-1">APROV=<?= $total_aprovado ?></span>
-            <span class="badge bg-danger rounded-pill px-2 py-1">REJ=<?= $total_rejeitado ?></span>
-        </div>
-    </div>
-</div>
 
 </div>
 
-<style>
-.card-title {
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-}
-.badge {
-    font-size: 0.75rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-</style>
-
-<div class="mb-3 text-end">
-    <button id="btnExportPDF" class="btn btn-danger me-2">📄 Exportar PDF</button>
-    <button id="btnExportExcel" class="btn btn-success">📊 Exportar Excel</button>
-</div>
-
-<!-- Scripts de Export -->
-
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script>
-// Função para gerar texto dos filtros
+// Função para capturar texto dos filtros (Atualizada)
 function getFiltrosText() {
-    const idadeInicio = '<?= htmlspecialchars($filtro_idade_inicio) ?>';
-    const idadeFim = '<?= htmlspecialchars($filtro_idade_fim) ?>';
-    const genero = '<?= htmlspecialchars($filtro_genero) ?>';
-    const candidatura = '<?= htmlspecialchars($filtro_candidatura) ?>';
-    const status = '<?= htmlspecialchars($filtro_status) ?>';
-
-    let filtros = [];
-    if(idadeInicio || idadeFim) filtros.push(`Idade: ${idadeInicio || '-'} até ${idadeFim || '-'}`);
-    if(genero) filtros.push(`Gênero: ${genero}`);
-    if(candidatura) filtros.push(`Candidatura: ${candidatura}`);
-    if(status) filtros.push(`Status: ${status}`);
+    const genero = document.getElementById('genero').options[document.getElementById('genero').selectedIndex].text;
+    const submissao = document.getElementById('submissao').options[document.getElementById('submissao').selectedIndex].text;
+    const faixaEtariaSelect = document.getElementById('faixa_etaria');
+    const faixaEtaria = faixaEtariaSelect.options[faixaEtariaSelect.selectedIndex].text;
+    const modalidadeSelect = document.getElementById('modalidade');
+    const modalidade = modalidadeSelect.options[modalidadeSelect.selectedIndex].text;
     
-    return filtros.length ? filtros.join(' | ') : 'Todos os registros';
-}
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-<script>
-// Função para gerar texto dos filtros
-function getFiltrosText() {
-    const idadeInicio = '<?= htmlspecialchars($filtro_idade_inicio) ?>';
-    const idadeFim = '<?= htmlspecialchars($filtro_idade_fim) ?>';
-    const genero = '<?= htmlspecialchars($filtro_genero) ?>';
-    const candidatura = '<?= htmlspecialchars($filtro_candidatura) ?>';
-    const status = '<?= htmlspecialchars($filtro_status) ?>';
-
     let filtros = [];
-    if(idadeInicio || idadeFim) filtros.push(`Idade: ${idadeInicio || '-'} até ${idadeFim || '-'}`);
-    if(genero) filtros.push(`Gênero: ${genero}`);
-    if(candidatura) filtros.push(`Candidatura: ${candidatura}`);
-    if(status) filtros.push(`Status: ${status}`);
+    if (genero !== 'Todos') filtros.push(`Gênero: ${genero}`);
+    if (submissao !== 'Todos') filtros.push(`Candidatura: ${submissao}`);
+    if (faixaEtaria !== 'Todas') filtros.push(`Faixa Etária: ${faixaEtaria}`);
+    if (modalidade !== 'Todas') filtros.push(`Modalidade: ${modalidade}`);
+
     
-    return filtros.length ? filtros.join(' | ') : 'Todos os registros';
+    return filtros.length > 0 ? `Filtros Aplicados: ${filtros.join(', ')}` : 'Todos os registros (Sem Filtro)';
 }
 
 // Exportar PDF
 document.getElementById('btnExportPDF').addEventListener('click', () => {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('p', 'mm', 'a4');
+    const doc = new jsPDF('l', 'mm', 'a4'); 
     
     doc.setFontSize(16);
-    doc.text("Relatório de Atletas", 14, 16);
+    doc.text("Relatório de Atletas (Admin)", 14, 16);
     
-    doc.setFontSize(11);
+    doc.setFontSize(9);
     doc.text(getFiltrosText(), 14, 24);
     
-    // Preparar dados da tabela
     const table = document.getElementById('tableAtletas');
+    const numCols = 9; // 9 Colunas
+    // Remove os ícones e a palavra Ação/ID/etc. do cabeçalho
+    const headers = Array.from(table.querySelectorAll('thead th')).slice(0, numCols).map(th => th.innerText.replace(/\s(\w+)$/, '')); 
     const rows = Array.from(table.querySelectorAll('tbody tr')).map(tr => 
-        Array.from(tr.querySelectorAll('td')).map(td => td.innerText)
-    );
-    const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.innerText);
+        Array.from(tr.querySelectorAll('td')).slice(0, numCols).map(td => td.innerText)
+    ).filter(row => row.length > 1);
 
     doc.autoTable({
         head: [headers],
         body: rows,
         startY: 30,
-        headStyles: { fillColor: [40, 167, 69] },
-        styles: { fontSize: 9 }
+        headStyles: { 
+            fillColor: [18, 52, 86], // Usando a cor primary-dark
+            textColor: 255,
+            fontSize: 9, 
+            fontStyle: 'bold'
+        },
+        styles: { fontSize: 8, cellPadding: 1.5 } // Células mais compactas
     });
 
     doc.save('relatorio_atletas.pdf');
@@ -285,72 +703,24 @@ document.getElementById('btnExportExcel').addEventListener('click', () => {
     const table = document.getElementById('tableAtletas');
     const wb = XLSX.utils.book_new();
 
-    // Capturar filtros
-    const filtrosText = getFiltrosText();
-
-    // Capturar cabeçalho
-    const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.innerText);
-
-    // Capturar linhas
+    const numCols = 9; // 9 Colunas
+    const headers = Array.from(table.querySelectorAll('thead th')).slice(0, numCols).map(th => th.innerText.replace(/\s(\w+)$/, ''));
     const data = Array.from(table.querySelectorAll('tbody tr')).map(tr => 
-        Array.from(tr.querySelectorAll('td')).map(td => td.innerText)
-    );
-
-    // Inserir filtros como primeira linha
-    data.unshift([filtrosText]);
-    // Inserir cabeçalho na linha 2
-    data.splice(1, 0, headers);
+        Array.from(tr.querySelectorAll('td')).slice(0, numCols).map(td => td.innerText)
+    ).filter(row => row.length > 1);
+    
+    data.unshift(headers); 
+    data.unshift([getFiltrosText()]); 
 
     const ws = XLSX.utils.aoa_to_sheet(data);
+    if (data.length > 0) {
+        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }]; 
+    }
+
     XLSX.utils.book_append_sheet(wb, ws, "Atletas");
     XLSX.writeFile(wb, 'relatorio_atletas.xlsx');
 });
 </script>
 
-
-
-
-               <table id="tableAtletas" class="table table-hover mb-0">
-
-                    <thead class="table-light">
-                        <tr>
-                            <th>ID</th>
-                            <th>Nome</th>
-                            <th>Idade</th>
-                            <th>Email</th>
-                            <th>Telefone</th>
-                            <th>Endereço</th>
-                            <th>Data Cadastro</th>
-                            <th>Vagas Candidatadas</th>
-                            <th>Status Candidaturas</th>
-                            <th>Ação</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-<?php while($row = $atletas->fetch_assoc()): ?>
-<tr>
-    <td><?= $row['id'] ?></td>
-    <td><?= htmlspecialchars($row['nome_completo']) ?></td>
-    <td><?= htmlspecialchars($row['idade']) ?></td>
-    <td><?= htmlspecialchars($row['email']) ?></td>
-    <td><?= htmlspecialchars($row['telefone']) ?></td>
-    <td><?= htmlspecialchars($row['endereco']) ?></td>
-    <td><?= $row['criado_em'] ?></td>
-    <td><?= $row['vagas_candidatadas'] ? 'Sim' : 'Não' ?></td>
-    <td><?= $row['status_candidaturas'] ? htmlspecialchars($row['status_candidaturas']) : 'Nenhuma' ?></td>
-    <td>
-        <a href="../perfil_atleta.php?id=<?= $row['id'] ?>" class="btn btn-primary btn-sm">Ver Perfil</a>
-        <a href="../perfil_atleta.php?id=<?= $row['id'] ?>" class="btn btn-danger btn-sm">Apagar</a>
-    </td>
-</tr>
-<?php endwhile; ?>
-</tbody>
-
-                </table>
-            </div>
-        </div>
-    </div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

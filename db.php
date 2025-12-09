@@ -2,7 +2,7 @@
 $host = 'localhost';
 $user = 'root';
 $password = '';
-$dbname = 'sistema_cadastro';
+$dbname = 'sistema_cadastri';
 
 $conn = new mysqli($host, $user, $password, $dbname);
 

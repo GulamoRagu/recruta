@@ -42,7 +42,7 @@ $query = $conn->prepare("
 $query->bind_param("ssdssssi", $nome, $descricao,  $preco, $genero_permitido, $data_validade, $modalidade, $posicao, $recrutador_id);
 
 if ($query->execute()) {
-    header("Location: listar_vaga.php");
+    header("Location: vagas.php");
     exit();
 } else {
     echo "Erro ao cadastrar vaga: " . $conn->error;
