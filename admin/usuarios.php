@@ -1,25 +1,27 @@
 <?php
 ob_start();
 session_start();
-require '../db.php'; // ajusta o caminho se necessário
+require '../db.php';
 
-// ----------------------------------------------------------------
-// 1. CAPTURA DOS FILTROS (PHP) - ATUALIZADO
-// ----------------------------------------------------------------
-$filtro_genero = $_GET['genero'] ?? ''; // 'M', 'F', ou vazio
-$filtro_submissao = $_GET['submissao'] ?? ''; // 'sim', 'nao', ou vazio
-// NOVOS FILTROS
-$filtro_faixa_etaria = $_GET['faixa_etaria'] ?? ''; // '10-15', '16-20', '21-25', '26+' ou vazio
-$filtro_modalidade = $_GET['modalidade'] ?? ''; // Nome da modalidade ou vazio
+// ===============================
+// 1. CAPTURA DE FILTROS
+// ===============================
+$filtro_genero       = $_GET['genero'] ?? '';
+$filtro_submissao    = $_GET['submissao'] ?? '';
+$filtro_faixa_etaria = $_GET['faixa_etaria'] ?? '';
+$filtro_modalidade   = $_GET['modalidade'] ?? '';
 
-// ----------------------------------------------------------------
+// ===============================
 // 2. DETEÇÃO DE COLUNAS (idade / preco / modalidade)
-// ----------------------------------------------------------------
-// Verificar existência de colunas na tabela 'usuarios'
+// ===============================
 function coluna_existe($conn, $tabela, $coluna) {
     $t = $conn->real_escape_string($tabela);
     $c = $conn->real_escape_string($coluna);
-    $q = $conn->query("SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$t' AND COLUMN_NAME = '$c'");
+    $q = $conn->query("SELECT COUNT(*) AS cnt 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = '$t' 
+        AND COLUMN_NAME = '$c'");
     if (!$q) return false;
     return (int)$q->fetch_assoc()['cnt'] > 0;
 }
@@ -28,107 +30,107 @@ $idade_field = null;
 if (coluna_existe($conn, 'usuarios', 'idade')) {
     $idade_field = 'idade';
 } elseif (coluna_existe($conn, 'usuarios', 'preco')) {
-    // conforme a tua mensagem: idades estao em 'preco'
     $idade_field = 'preco';
 }
 
-// modalidade em usuarios?
-$usuarios_tem_modalidade = coluna_existe($conn, 'usuarios', 'modalidade');
+// tabela usuarios TEM a coluna modalidade ✔
+$usuarios_tem_modalidade = true;
 
-// ----------------------------------------------------------------
-// 3. KPIs GERAIS (contagens simples)
-// ----------------------------------------------------------------
-// Total atletas
-$total_atletas = $conn->query("SELECT COUNT(*) AS total FROM usuarios WHERE tipo='cliente'")->fetch_assoc()['total'];
+// ===============================
+// 3. CONTAGENS GERAIS
+// ===============================
+$total_atletas = $conn->query("SELECT COUNT(*) AS total 
+    FROM usuarios WHERE tipo='cliente'")
+    ->fetch_assoc()['total'];
 
-// Total por género (conta robusta: aceita 'm','masculino','M', etc.)
-$total_masculinos = $conn->query("SELECT COUNT(*) AS total FROM usuarios WHERE tipo='cliente' AND LOWER(COALESCE(genero,'')) LIKE 'm%'")->fetch_assoc()['total'];
-$total_femininos = $conn->query("SELECT COUNT(*) AS total FROM usuarios WHERE tipo='cliente' AND LOWER(COALESCE(genero,'')) LIKE 'f%'")->fetch_assoc()['total'];
+$total_masculinos = $conn->query("
+    SELECT COUNT(*) AS total 
+    FROM usuarios 
+    WHERE tipo='cliente' 
+    AND LOWER(COALESCE(genero,'')) LIKE 'm%'")
+    ->fetch_assoc()['total'];
 
-// Modalidades: total distinto de modalidades em produtos
-$total_modalidades_db = $conn->query("SELECT DISTINCT modalidade FROM produtos WHERE modalidade IS NOT NULL AND modalidade <> '' ORDER BY modalidade ASC");
+$total_femininos = $conn->query("
+    SELECT COUNT(*) AS total 
+    FROM usuarios 
+    WHERE tipo='cliente' 
+    AND LOWER(COALESCE(genero,'')) LIKE 'f%'")
+    ->fetch_assoc()['total'];
+
+// modalidades existentes no sistema
 $modalidades_opcoes = [];
-if ($total_modalidades_db) {
-    while($row = $total_modalidades_db->fetch_assoc()) {
-        $modalidades_opcoes[] = htmlspecialchars($row['modalidade']);
+$modal_res = $conn->query("
+    SELECT DISTINCT LOWER(COALESCE(modalidade,'')) AS modalidade
+    FROM usuarios
+    WHERE modalidade IS NOT NULL AND modalidade <> ''
+    ORDER BY modalidade ASC
+");
+if ($modal_res) {
+    while($row = $modal_res->fetch_assoc()) {
+        $modalidades_opcoes[] = ucfirst($row['modalidade']);
     }
 }
 $total_modalidades = count($modalidades_opcoes);
 
-
-// ----------------------------------------------------------------
-// 4. FAIXA ETÁRIA (apenas se existir campo de idade/preco)
-// ----------------------------------------------------------------
-$faixa_10_15 = 'N/D';
-$faixa_16_20 = 'N/D';
-$faixa_21_25 = 'N/D';
-$faixa_26_more = 'N/D';
+// ===============================
+// 4. FAIXAS ETÁRIAS
+// ===============================
+$faixa_10_15  = 'N/D';
+$faixa_16_20  = 'N/D';
+$faixa_21_25  = 'N/D';
+$faixa_26_more= 'N/D';
 
 if ($idade_field) {
-    // limpar nome de campo para uso seguro (não permite injeção)
     $idf = $conn->real_escape_string($idade_field);
-
     $q = $conn->query("
         SELECT
-            SUM(CASE WHEN $idf BETWEEN 10 AND 15 THEN 1 ELSE 0 END) AS f_10_15,
-            SUM(CASE WHEN $idf BETWEEN 16 AND 20 THEN 1 ELSE 0 END) AS f_16_20,
-            SUM(CASE WHEN $idf BETWEEN 21 AND 25 THEN 1 ELSE 0 END) AS f_21_25,
-            SUM(CASE WHEN $idf >= 26 THEN 1 ELSE 0 END) AS f_26
+            SUM(CASE WHEN $idf BETWEEN 10 AND 15 THEN 1 ELSE 0 END) AS f1,
+            SUM(CASE WHEN $idf BETWEEN 16 AND 20 THEN 1 ELSE 0 END) AS f2,
+            SUM(CASE WHEN $idf BETWEEN 21 AND 25 THEN 1 ELSE 0 END) AS f3,
+            SUM(CASE WHEN $idf >= 26 THEN 1 ELSE 0 END) AS f4
         FROM usuarios
         WHERE tipo='cliente' AND $idf IS NOT NULL AND $idf <> ''
     ");
     if ($q) {
         $r = $q->fetch_assoc();
-        $faixa_10_15 = (int)$r['f_10_15'];
-        $faixa_16_20 = (int)$r['f_16_20'];
-        $faixa_21_25 = (int)$r['f_21_25'];
-        $faixa_26_more = (int)$r['f_26'];
-    } else {
-        // Em caso de erro, mantemos 'N/D'
+        $faixa_10_15  = (int)$r['f1'];
+        $faixa_16_20  = (int)$r['f2'];
+        $faixa_21_25  = (int)$r['f3'];
+        $faixa_26_more= (int)$r['f4'];
     }
 }
 
-// ----------------------------------------------------------------
-// 5. ATLETAS POR MODALIDADE
-// ----------------------------------------------------------------
+// ===============================
+// 5. ATLETAS POR MODALIDADE  ✔ CORRIGIDO
+// ===============================
 $atletas_por_modalidade = [];
-$modalidade_field = $usuarios_tem_modalidade ? 'modalidade' : 'p.modalidade';
 
-if ($usuarios_tem_modalidade) {
-    $q = $conn->query("
-        SELECT COALESCE(modalidade, 'Não Definida') AS modalidade, COUNT(*) AS total
-        FROM usuarios
-        WHERE tipo='cliente'
-        GROUP BY LOWER(modalidade)
-        ORDER BY total DESC
-    ");
-    if ($q) {
-        while ($row = $q->fetch_assoc()) {
-            $atletas_por_modalidade[] = $row;
-        }
-    }
-} else {
-    // fallback: contar atletas por modalidade dos produtos a que se candidataram
-    $q = $conn->query("
-        SELECT COALESCE(p.modalidade, 'Não Definida') AS modalidade, COUNT(DISTINCT c.cliente_id) AS total
-        FROM compras c
-        INNER JOIN produtos p ON p.id = c.produto_id
-        GROUP BY LOWER(p.modalidade)
-        ORDER BY total DESC
-    ");
-    if ($q) {
-        while ($row = $q->fetch_assoc()) {
-            $atletas_por_modalidade[] = $row;
-        }
+$q = $conn->query("
+    SELECT 
+        LOWER(COALESCE(modalidade,'não definida')) AS modalidade,
+        COUNT(*) AS total
+    FROM usuarios
+    WHERE tipo='cliente'
+    GROUP BY LOWER(COALESCE(modalidade,'não definida'))
+    ORDER BY total DESC
+");
+
+if ($q) {
+    while($row=$q->fetch_assoc()) {
+        $atletas_por_modalidade[] = [
+            "modalidade" => ucfirst($row['modalidade']),
+            "total"      => $row['total']
+        ];
     }
 }
 
-// ----------------------------------------------------------------
-// 6. LISTA DE ATLETAS QUE EFECTUARAM SUBMISSÕES (candidaturas)
-// ----------------------------------------------------------------
+// ===============================
+// 6. ATLETAS QUE FIZERAM SUBMISSÕES
+// ===============================
 $atletas_com_submissao = [];
 $q = $conn->query("
-    SELECT DISTINCT u.id, u.nome_completo, u.idade, u.email, u.telefone, u.posicao
+    SELECT DISTINCT u.id, u.nome_completo, u.idade, 
+           u.email, u.telefone, u.posicao
     FROM usuarios u
     INNER JOIN compras c ON c.cliente_id = u.id
     WHERE u.tipo='cliente'
@@ -140,99 +142,65 @@ if ($q) {
     }
 }
 
-// ----------------------------------------------------------------
-// 7. CONSTRUÇÃO DA QUERY PRINCIPAL (TABELA) - ATUALIZADO COM NOVOS FILTROS
-// ----------------------------------------------------------------
-$where_clauses = ["u.tipo='cliente'"];
+// ===============================
+// 7. QUERY PRINCIPAL — TABELA
+// ===============================
+$where = ["u.tipo='cliente'"];
 
-// filtro genero
+// genero
 if (!empty($filtro_genero)) {
-    $genero_safe = $conn->real_escape_string($filtro_genero);
-    // permitimos 'M'/'F' ou texto
-    if (strtolower($genero_safe) === 'm') {
-        $where_clauses[] = "LOWER(u.genero) LIKE 'm%'";
-    } elseif (strtolower($genero_safe) === 'f') {
-        $where_clauses[] = "LOWER(u.genero) LIKE 'f%'";
-    } else {
-        $where_clauses[] = "LOWER(u.genero) = LOWER('$genero_safe')";
+    $g = strtolower($conn->real_escape_string($filtro_genero));
+    if ($g == 'm') {
+        $where[] = "LOWER(u.genero) LIKE 'm%'";
+    } elseif ($g == 'f') {
+        $where[] = "LOWER(u.genero) LIKE 'f%'";
     }
 }
 
-// filtro submissao (sim/nao)
+// submissao
 if ($filtro_submissao === 'sim') {
-    // atletas com candidaturas
-    $where_clauses[] = " (SELECT COUNT(*) FROM compras c2 WHERE c2.cliente_id = u.id) > 0 ";
+    $where[] = "(SELECT COUNT(*) FROM compras c2 WHERE c2.cliente_id=u.id) > 0";
 } elseif ($filtro_submissao === 'nao') {
-    $where_clauses[] = " (SELECT COUNT(*) FROM compras c2 WHERE c2.cliente_id = u.id) = 0 ";
+    $where[] = "(SELECT COUNT(*) FROM compras c2 WHERE c2.cliente_id=u.id) = 0";
 }
 
-// filtro faixa etaria (NOVO)
+// faixa etária
 if ($idade_field && !empty($filtro_faixa_etaria)) {
     $idf = $conn->real_escape_string($idade_field);
     switch ($filtro_faixa_etaria) {
-        case '10-15':
-            $where_clauses[] = "u.$idf BETWEEN 10 AND 15";
-            break;
-        case '16-20':
-            $where_clauses[] = "u.$idf BETWEEN 16 AND 20";
-            break;
-        case '21-25':
-            $where_clauses[] = "u.$idf BETWEEN 21 AND 25";
-            break;
-        case '26+':
-            $where_clauses[] = "u.$idf >= 26";
-            break;
+        case '10-15': $where[] = "u.$idf BETWEEN 10 AND 15"; break;
+        case '16-20': $where[] = "u.$idf BETWEEN 16 AND 20"; break;
+        case '21-25': $where[] = "u.$idf BETWEEN 21 AND 25"; break;
+        case '26+':   $where[] = "u.$idf >= 26"; break;
     }
 }
 
-// filtro modalidade (NOVO)
-$join_compras_produtos = false;
+// modalidade (a tabela usuarios TEM essa coluna)
 if (!empty($filtro_modalidade)) {
-    $modalidade_safe = $conn->real_escape_string($filtro_modalidade);
-    
-    if ($usuarios_tem_modalidade) {
-        // Se a coluna 'modalidade' estiver na tabela 'usuarios'
-        $where_clauses[] = "u.modalidade = '$modalidade_safe'";
-    } else {
-        // Se a modalidade for determinada pelas candidaturas (tabela 'produtos')
-        // Adicionamos um JOIN específico para o filtro
-        $join_compras_produtos = true;
-        $where_clauses[] = "p_f.modalidade = '$modalidade_safe'";
-    }
+    $mod = strtolower($conn->real_escape_string($filtro_modalidade));
+    $where[] = "LOWER(u.modalidade) = '$mod'";
 }
 
-$where_sql = count($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
+$where_sql = "WHERE " . implode(" AND ", $where);
 
-// Ajustar os JOINs da query principal
-$extra_joins = '';
-$group_by_fields = 'u.id'; // Manter o GROUP BY principal em u.id
+// ===============================
+// QUERY FINAL — CORRIGIDA ✔
 
-if ($join_compras_produtos) {
-    // Se o filtro de modalidade usa 'produtos', precisamos desse JOIN para o filtro
-    $extra_joins .= "
-        INNER JOIN compras c_f ON c_f.cliente_id = u.id
-        INNER JOIN produtos p_f ON p_f.id = c_f.produto_id
-    ";
-    // O LEFT JOIN c/p continua para a coluna 'vagas_candidatadas'
-}
-
-// Query principal lista atletas (mantive teu GROUP_CONCAT para vagas candidatadas)
 $sql = "
     SELECT 
         u.*, 
-        GROUP_CONCAT(DISTINCT p.nome SEPARATOR ', ') AS vagas_candidatadas
+        GROUP_CONCAT(DISTINCT p.nome ORDER BY p.nome SEPARATOR ', ') AS vagas_candidatadas
     FROM usuarios u
     LEFT JOIN compras c ON c.cliente_id = u.id
     LEFT JOIN produtos p ON p.id = c.produto_id
-    $extra_joins
     $where_sql
-    GROUP BY $group_by_fields
+    GROUP BY u.id
     ORDER BY u.criado_em DESC
 ";
 
 $atletas = $conn->query($sql);
-
 ?>
+
 <!DOCTYPE html>
 <html lang="pt">
 <head>
@@ -498,7 +466,7 @@ $atletas = $conn->query($sql);
                                 <?php foreach ($atletas_com_submissao as $a): ?>
                                     <li class="list-group-item d-flex justify-content-between align-items-center small">
                                         <div>
-                                            <strong><i class="fa-solid fa-user-check me-1 text-success"></i><?= htmlspecialchars($a['nome_completo']) ?></strong><br>
+                                            <strong><i class="fa-solid fa-user-check me-1 text-success"></i><?= htmlspecialchars($a['nome_completo'] ?? '')?></strong><br>
                                             <small class="text-muted" style="font-size: 0.7rem;"><i class="fa-solid fa-envelope me-1"></i><?= htmlspecialchars($a['email']) ?></small>
                                         </div>
                                         <div class="text-end">

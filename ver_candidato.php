@@ -129,57 +129,58 @@ $user = $result->fetch_assoc();
 
         <div class="info-box">
             <span class="info-label">Nome:</span><br>
-            <span class="info-value"><?= htmlspecialchars($user['nome_completo']) ?></span>
+            <span class="info-value"><?= htmlspecialchars($user['nome_completo']?? '') ?></span>
         </div>
 
         <div class="info-box">
             <span class="info-label">Email:</span><br>
-            <span class="info-value"><?= htmlspecialchars($user['email']) ?></span>
+            <span class="info-value"><?= htmlspecialchars($user['email']?? '') ?></span>
         </div>
 
         <div class="info-box">
             <span class="info-label">Telefone:</span><br>
-            <span class="info-value"><?= htmlspecialchars($user['telefone']) ?></span>
+            <span class="info-value"><?= htmlspecialchars($user['telefone']?? '') ?></span>
         </div>
 
         <div class="info-box">
             <span class="info-label">Endereço:</span><br>
-            <span class="info-value"><?= htmlspecialchars($user['endereco']) ?></span>
+            <span class="info-value"><?= htmlspecialchars($user['endereco']?? '') ?></span>
         </div>
 
-        <div class="info-box">
-            <span class="info-label">Idade:</span><br>
-            <span class="info-value"><?= htmlspecialchars($user['idade']) ?> anos</span>
-        </div>
+       <div class="info-box">
+    <span class="info-label">Idade:</span><br>
+    <span class="info-value"><?= htmlspecialchars($user['idade'] ?? '') ?> anos</span>
+</div>
 
         <div class="info-box">
             <span class="info-label">Posição:</span><br>
-            <span class="info-value"><?= htmlspecialchars($user['posicao']) ?></span>
+            <span class="info-value"><?= htmlspecialchars($user['posicao']?? '') ?></span>
         </div>
 
         <div class="info-box">
             <span class="info-label">Clube Anterior:</span><br>
-            <span class="info-value"><?= htmlspecialchars($user['clube_anterior']) ?></span>
+            <span class="info-value"><?= htmlspecialchars($user['clube_anterior']?? '') ?></span>
         </div>
 
         <div class="info-box">
             <span class="info-label">Modalidade:</span><br>
-            <span class="info-value"><?= htmlspecialchars($user['modalidade']) ?></span>
+            <span class="info-value"><?= htmlspecialchars($user['modalidade']?? '') ?></span>
         </div>
 
         <div class="info-box">
             <span class="info-label">Pé Preferido:</span><br>
-            <span class="info-value"><?= htmlspecialchars($user['pe']) ?></span>
+            <span class="info-value"><?= htmlspecialchars($user['pe']?? '') ?></span>
         </div>
 
         <div class="info-box">
             <span class="info-label">Gênero:</span><br>
-            <span class="info-value"><?= htmlspecialchars($user['genero']) ?></span>
+            <span class="info-value"><?= htmlspecialchars($user['genero']?? '') ?></span>
         </div>
 
         <div class="info-box">
             <span class="info-label">Situação Atual:</span><br>
-            <span class="info-value"><?= htmlspecialchars($user['situacao_atual']) ?></span>
+            <span class="info-value"><?= htmlspecialchars($user['situacao_atual']?? '') ?></span>
+            
         </div>
 
     </div>

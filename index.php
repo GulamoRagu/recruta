@@ -220,9 +220,10 @@ $tem_proxima_pagina = $pagina_atual < $total_paginas;
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top shadow">
     <div class="container-fluid">
-        <a class="navbar-brand" href="#">
-            <img src="logo2.png" alt="Sistema AAM" height="35" class="me-2"> **AAM**
-        </a>
+       <a class="navbar-brand" href="#">
+    <img src="logo2.png" alt="Sistema AAM" height="35" class="me-2">
+    <span style="color: red; font-weight: bold;">AAM</span>
+</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMenu">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -268,7 +269,7 @@ $tem_proxima_pagina = $pagina_atual < $total_paginas;
         <h2 class="text-center">Oportunidades em Destaque</h2>
         
         <?php if ($total_vagas > 0): ?>
-            <p class="text-center text-muted mb-4 small">Mostrando **<?= $result->num_rows ?>** de **<?= $total_vagas ?>** vagas ativas (Página <?= $pagina_atual ?> de <?= $total_paginas ?>)</p>
+            <p class="text-center text-muted mb-4 small">Mostrando **<?= $result->num_rows ?>** de **<?= $total_vagas ?>** vagas activas (Página <?= $pagina_atual ?> de <?= $total_paginas ?>)</p>
         <?php endif; ?>
 
         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">

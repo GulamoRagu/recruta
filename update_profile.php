@@ -187,7 +187,7 @@ $user = $result->fetch_assoc();
                         <label for="telefone" class="form-label">Telefone</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fa-solid fa-phone"></i></span>
-                            <input type="text" name="telefone" id="telefone" class="form-control" value="<?= htmlspecialchars($user['telefone']) ?>" required>
+                            <input type="text" name="telefone" id="telefone" class="form-control" value="<?= htmlspecialchars($user['telefone'] ?? '') ?>" required>
                         </div>
                     </div>
                     <div class="col-12">
@@ -235,10 +235,10 @@ $user = $result->fetch_assoc();
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <label for="posicao" class="form-label">Posição em Campo/Quadra</label>
+                        <label for="posicao" class="form-label">Posição em Campo</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fa-solid fa-crosshairs"></i></span>
-                            <input type="text" name="posicao" id="posicao" class="form-control" value="<?= htmlspecialchars($user['posicao']) ?>" required>
+                            <input type="text" name="posicao" id="posicao" class="form-control" value="<?= htmlspecialchars($user['posicao'] ?? '') ?>" required>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -258,14 +258,14 @@ $user = $result->fetch_assoc();
                         <label for="clube_anterior" class="form-label">Clube Anterior</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fa-solid fa-shield-halved"></i></span>
-                            <input type="text" name="clube_anterior" id="clube_anterior" class="form-control" value="<?= htmlspecialchars($user['clube_anterior']) ?>" required>
+                            <input type="text" name="clube_anterior" id="clube_anterior" class="form-control" value="<?= htmlspecialchars($user['clube_anterior'] ?? '') ?>" required>
                         </div>
                     </div>
                     <div class="col-12">
                         <label for="situacao_atual" class="form-label">Situação Atual (Contrato, Livre, etc.)</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fa-solid fa-list-check"></i></span>
-                            <input type="text" name="situacao_atual" id="situacao_atual" class="form-control" value="<?= htmlspecialchars($user['situacao_atual']) ?>" required>
+                            <input type="text" name="situacao_atual" id="situacao_atual" class="form-control" value="<?= htmlspecialchars($user['situacao_atual'] ?? '') ?>" required>
                         </div>
                     </div>
                 </div>

@@ -389,7 +389,7 @@ while ($row = $result_atleta_stats->fetch_assoc()) {
                                     <i class="fa-solid fa-user-circle fa-2x text-muted"></i>
                                 <?php endif; ?>
                             </td>
-                            <td><?= htmlspecialchars($row['nome_completo']) ?></td>
+                            <td><?= htmlspecialchars($row['nome_completo']?? '') ?></td>
                             <td><?= htmlspecialchars($row['email']) ?></td>
                             <td><?= htmlspecialchars($row['nome_vaga']) ?></td>
                             <td><?= htmlspecialchars($row['modalidade']) ?></td>

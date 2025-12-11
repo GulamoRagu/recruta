@@ -174,25 +174,25 @@ $nome_usuario = $user['nome_completo'] ?? 'Atleta';
             </div>
 
             <div class="card-body pt-5">
-                <h2 class="text-center mb-4 text-primary"><?= htmlspecialchars($user['nome_completo']) ?></h2>
+                <h2 class="text-center mb-4 text-primary"><?= htmlspecialchars($user['nome_completo']?? '') ?></h2>
                 
                 <h5 class="info-header mb-0"><i class="fa-solid fa-id-card me-2"></i> Informações de Contacto</h5>
                 <ul class="list-group info-list mb-4">
-                    <li class="list-group-item"><strong>Usuário:</strong> <?= htmlspecialchars($user['username']) ?></li>
-                    <li class="list-group-item"><strong>Email:</strong> <?= htmlspecialchars($user['email']) ?></li>
-                    <li class="list-group-item"><strong>Telefone:</strong> <?= htmlspecialchars($user['telefone']) ?></li>
-                    <li class="list-group-item"><strong>Endereço:</strong> <?= htmlspecialchars($user['endereco']) ?></li>
-                    <li class="list-group-item"><strong>Género:</strong> <?= htmlspecialchars($user['genero']) ?></li>
+                    <li class="list-group-item"><strong>Usuário:</strong> <?= htmlspecialchars($user['username']?? '') ?></li>
+                    <li class="list-group-item"><strong>Email:</strong> <?= htmlspecialchars($user['email']?? '') ?></li>
+                    <li class="list-group-item"><strong>Telefone:</strong> <?= htmlspecialchars($user['telefone']?? '') ?></li>
+                    <li class="list-group-item"><strong>Endereço:</strong> <?= htmlspecialchars($user['endereco']?? '') ?></li>
+                    <li class="list-group-item"><strong>Género:</strong> <?= htmlspecialchars($user['genero']?? '') ?></li>
                 </ul>
 
                 <h5 class="info-header mb-0 bg-success"><i class="fa-solid fa-baseball-bat-ball me-2"></i> Estatísticas Desportivas</h5>
                 <ul class="list-group info-list">
-                    <li class="list-group-item"><strong>Modalidade:</strong> <?= htmlspecialchars($user['modalidade']) ?></li>
-                    <li class="list-group-item"><strong>Posição:</strong> <?= htmlspecialchars($user['posicao']) ?></li>
-                    <li class="list-group-item"><strong>Pé Preferido:</strong> <?= htmlspecialchars($user['pe']) ?></li>
-                    <li class="list-group-item"><strong>Idade:</strong> <?= htmlspecialchars($user['idade']) ?> anos</li>
-                    <li class="list-group-item"><strong>Clube Anterior:</strong> <?= htmlspecialchars($user['clube_anterior']) ?></li>
-                    <li class="list-group-item"><strong>Situação Actual:</strong> <?= htmlspecialchars($user['situacao_atual']) ?></li>
+                    <li class="list-group-item"><strong>Modalidade:</strong> <?= htmlspecialchars($user['modalidade']?? '')  ?></li>
+                    <li class="list-group-item"><strong>Posição:</strong> <?= htmlspecialchars($user['posicao'] ?? '')  ?></li>
+                    <li class="list-group-item"><strong>Pé Preferido:</strong> <?= htmlspecialchars($user['pe']?? '') ?></li>
+                    <li class="list-group-item"><strong>Idade:</strong> <?= htmlspecialchars($user['idade']?? '') ?> anos</li>
+                    <li class="list-group-item"><strong>Clube Anterior:</strong> <?= htmlspecialchars($user['clube_anterior']?? '') ?></li>
+                    <li class="list-group-item"><strong>Situação Actual:</strong> <?= htmlspecialchars($user['situacao_atual']?? '') ?></li>
                 </ul>
             </div>
 
