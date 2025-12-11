@@ -565,7 +565,8 @@ $atletas = $conn->query($sql);
                                 <td class="fw-bold"><?= htmlspecialchars($row['nome_completo']) ?></td>
                                 <td><?= htmlspecialchars($row['idade'] ?? ($row['preco'] ?? 'N/D')) ?></td>
                                 <td><?= htmlspecialchars($row['email']) ?></td>
-                                <td><?= htmlspecialchars($row['telefone']) ?></td>
+                                <td><?= htmlspecialchars($row['telefone'] ?? '') ?></td>
+
                                 <td><?= htmlspecialchars($row['posicao'] ?? 'N/D') ?></td>
                                 <td><?= htmlspecialchars($usuarios_tem_modalidade ? ($row['modalidade'] ?? 'N/D') : 'Via Produto') ?></td>
                                 <td>

@@ -180,7 +180,7 @@ $user = $result->fetch_assoc();
                         <label for="nome_completo" class="form-label">Nome Completo</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fa-solid fa-id-card-clip"></i></span>
-                            <input type="text" name="nome_completo" id="nome_completo" class="form-control" value="<?= htmlspecialchars($user['nome_completo']) ?>" required>
+                            <input type="text" name="nome_completo" id="nome_completo" class="form-control" value="<?= htmlspecialchars($user['nome_completo']?? '') ?>" required>
                         </div>
                     </div>
                     <div class="col-md-6">
